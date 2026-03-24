@@ -2,6 +2,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import type { Nivel } from "@prisma/client";
+
+function nivelFilter(role: string): Nivel[] | undefined {
+  if (role === "SECRETARIA_FUND1") return ["FUND_I"];
+  if (role === "SECRETARIA_FUND2") return ["FUND_II", "MEDIO"];
+  return undefined;
+}
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -10,14 +17,19 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const turmaId = searchParams.get("turmaId");
 
+  const niveis = nivelFilter(session.user.role);
+
   const alunos = await prisma.aluno.findMany({
     where: {
       ativo: true,
-      turma: { ativa: true },
+      turma: {
+        ativa: true,
+        ...(niveis ? { nivel: { in: niveis } } : {}),
+      },
       ...(turmaId ? { turmaId } : {}),
     },
     include: {
-      turma: { select: { id: true, nome: true, serie: true } },
+      turma: { select: { id: true, nome: true, serie: true, nivel: true } },
       _count: { select: { ocorrencias: true } },
     },
     orderBy: { nome: "asc" },
@@ -40,15 +52,23 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // CORREÇÃO: se o aluno existia e foi desativado, reativa em vez de criar novo
+    const existente = await prisma.aluno.findUnique({ where: { matricula } });
+
+    if (existente) {
+      if (existente.ativo) {
+        return NextResponse.json({ error: "Matrícula já cadastrada para um aluno ativo." }, { status: 409 });
+      }
+      // Reativa o aluno com os novos dados
+      const aluno = await prisma.aluno.update({
+        where: { matricula },
+        data: { nome, turmaId, dataNasc: dataNasc ? new Date(dataNasc) : null, email, telefone, ativo: true, estrelas: 5 },
+      });
+      return NextResponse.json(aluno, { status: 200 });
+    }
+
     const aluno = await prisma.aluno.create({
-      data: {
-        nome,
-        matricula,
-        turmaId,
-        dataNasc: dataNasc ? new Date(dataNasc) : null,
-        email,
-        telefone,
-      },
+      data: { nome, matricula, turmaId, dataNasc: dataNasc ? new Date(dataNasc) : null, email, telefone },
     });
     return NextResponse.json(aluno, { status: 201 });
   } catch (e: unknown) {

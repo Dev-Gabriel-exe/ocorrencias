@@ -2,7 +2,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Users } from "lucide-react";
 import Link from "next/link";
 import { ListaAlunosInterativa } from "@/components/turma/lista-alunos-interativa";
 
@@ -11,7 +11,7 @@ export default async function TurmaPage({ params }: { params: Promise<{ id: stri
   const session = await auth();
   const professorId = session!.user.id;
 
-  const minhasDisciplinasNaTurma = await prisma.disciplinaTurma.findMany({
+  const minhasDisciplinasNaTurma = await prisma.professorDisciplinaTurma.findMany({
     where: { turmaId: id, professorId },
     include: { disciplina: true },
   });
@@ -47,16 +47,28 @@ export default async function TurmaPage({ params }: { params: Promise<{ id: stri
         >
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">{turma.nome}</h1>
-        <p className="text-gray-400 text-sm mt-1">
-          {turma.turno} · {turma.alunos.length} alunos
-        </p>
-        <div className="flex flex-wrap gap-2 mt-2">
-          {disciplinasDoProfessor.map((d) => (
-            <span key={d.id} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-              {d.nome}
-            </span>
-          ))}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{turma.nome}</h1>
+            <p className="text-gray-400 text-sm mt-1">
+              {turma.turno} · {turma.alunos.length} alunos
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {disciplinasDoProfessor.map((d) => (
+                <span key={d.id} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                  {d.nome}
+                </span>
+              ))}
+            </div>
+          </div>
+          {/* NOVO: botão ocorrência em massa */}
+          <Link
+            href={`/professor/ocorrencias/massa?turmaId=${id}`}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors flex-shrink-0"
+          >
+            <Users className="w-4 h-4" />
+            Ocorrência em Massa
+          </Link>
         </div>
       </div>
 

@@ -84,6 +84,7 @@ export interface MotivoType {
   descricao?: string | null;
   disciplinaId?: string | null;
   disciplina?: { id: string; nome: string } | null;
+  disciplinasExcluidas?: { id: string; nome: string }[];
   nivel?: Nivel | null;
   positivo: boolean;
   ativo: boolean;

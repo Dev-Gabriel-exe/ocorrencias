@@ -18,6 +18,7 @@ import {
 const navItems = [
   { href: "/professor/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/professor/perfil", label: "Meu Perfil", icon: UserCircle },
+  { href: "/professor/ocorrencias", label: "Ocorrências", icon: ClipboardList },
   { href: "/professor/lembretes", label: "Lembretes", icon: CalendarDays },
   { href: "/professor/relatorios", label: "Relatórios", icon: BarChart3 },
 ];

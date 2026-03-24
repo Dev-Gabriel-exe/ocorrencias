@@ -50,26 +50,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Campos obrigatórios faltando" }, { status: 400 });
   }
 
+  // Deriva delta automaticamente do motivo — ignora o valor vindo do cliente
+  let delta = deltaEstrelas;
+  if (motivoId) {
+    const motivo = await prisma.motivo.findUnique({
+      where: { id: motivoId },
+      select: { positivo: true },
+    });
+    if (motivo) delta = motivo.positivo ? 1 : -1;
+  }
+
   const ocorrencia = await prisma.ocorrencia.create({
     data: {
-      alunoId, turmaId,
+      alunoId,
+      turmaId,
       professorId: session.user.id,
       motivoId: motivoId || null,
       disciplinaId: disciplinaId || null,
-      descricao, deltaEstrelas,
+      descricao,
+      deltaEstrelas: delta,
       vistaPelaSecretaria: false,
     },
     include: {
-      aluno: true, turma: true, professor: true, motivo: true, disciplina: true,
+      aluno: true,
+      turma: true,
+      professor: true,
+      motivo: true,
+      disciplina: true,
     },
   });
 
-  if (deltaEstrelas !== 0) {
+  // Atualiza estrelas do aluno
+  if (delta !== 0) {
     const aluno = await prisma.aluno.findUnique({ where: { id: alunoId } });
     if (aluno) {
       await prisma.aluno.update({
         where: { id: alunoId },
-        data: { estrelas: Math.min(10, Math.max(0, aluno.estrelas + deltaEstrelas)) },
+        data: { estrelas: Math.min(10, Math.max(0, aluno.estrelas + delta)) },
       });
     }
   }

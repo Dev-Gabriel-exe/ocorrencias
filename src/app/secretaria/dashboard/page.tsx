@@ -40,18 +40,19 @@ export default async function DashboardSecretaria() {
   });
 
   const ocorrenciasRecentes = await prisma.ocorrencia.findMany({
-    where: {
-      turma: { ...(niveis ? { nivel: { in: niveis } } : {}) },
-    },
-    include: {
-      aluno: { select: { nome: true } },
-      turma: { select: { nome: true } },
-      professor: { select: { name: true } },
-      motivo: { select: { titulo: true, positivo: true } },
-    },
-    orderBy: { data: "desc" },
-    take: 8,
-  });
+  where: {
+    turma: { ...(niveis ? { nivel: { in: niveis } } : {}), ativa: true },
+    aluno: { ativo: true }, // CORREÇÃO: só alunos ativos
+  },
+  include: {
+    aluno: { select: { nome: true } },
+    turma: { select: { nome: true } },
+    professor: { select: { name: true } },
+    motivo: { select: { titulo: true, positivo: true } },
+  },
+  orderBy: { data: "desc" },
+  take: 8,
+});
 
   return (
     <div>

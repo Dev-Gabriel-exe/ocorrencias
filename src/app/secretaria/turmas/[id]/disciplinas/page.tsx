@@ -17,19 +17,24 @@ interface Disciplina {
   professores?: Professor[];
 }
 
-interface VinculoProfessor {
-  professorId: string;
-  disciplinaId: string;
-  turmaId: string;
+// CORREÇÃO: estrutura compatível com a nova API
+interface ProfessorTurma {
+  professorId?: string;
   professor: Professor;
-  disciplina: { id: string; nome: string };
+}
+
+interface DisciplinaVinculada {
+  disciplina: {
+    id: string;
+    nome: string;
+    professorTurmas: ProfessorTurma[];
+  };
 }
 
 interface Turma {
   id: string;
   nome: string;
-  disciplinas: { disciplina: Disciplina }[];
-  professorDisciplinas: VinculoProfessor[];
+  disciplinas: DisciplinaVinculada[];
 }
 
 export default function VincularDisciplinasPage() {
@@ -56,14 +61,10 @@ export default function VincularDisciplinasPage() {
 
     if (dRes.ok) {
       const discs: Disciplina[] = await dRes.json();
-      // Busca professores de cada disciplina via rota dedicada
       const comProfessores = await Promise.all(
         discs.map(async (d) => {
           const r = await fetch(`/api/disciplinas/${d.id}/professores?turmaId=${turmaId}`);
-          if (r.ok) {
-            const profs: Professor[] = await r.json();
-            return { ...d, professores: profs };
-          }
+          if (r.ok) return { ...d, professores: await r.json() };
           return { ...d, professores: [] };
         })
       );
@@ -113,12 +114,14 @@ export default function VincularDisciplinasPage() {
     await carregar();
   }
 
-  function getProfessoresDaTurma(disciplinaId: string): VinculoProfessor[] {
-    return turma?.professorDisciplinas.filter((v) => v.disciplinaId === disciplinaId) ?? [];
+  // CORREÇÃO: lê professorTurmas de dentro de disciplinas[]
+  function getProfessoresDaTurma(disciplinaId: string): ProfessorTurma[] {
+    const disc = turma?.disciplinas.find((d) => d.disciplina.id === disciplinaId);
+    return disc?.disciplina.professorTurmas ?? [];
   }
 
   function getProfessoresDisponiveis(disc: Disciplina): Professor[] {
-    const jaVinculados = getProfessoresDaTurma(disc.id).map((v) => v.professorId);
+    const jaVinculados = getProfessoresDaTurma(disc.id).map((v) => v.professor.id);
     return (disc.professores ?? []).filter((p) => !jaVinculados.includes(p.id));
   }
 
@@ -130,8 +133,8 @@ export default function VincularDisciplinasPage() {
 
   return (
     <div className="max-w-2xl">
-      <Link href="/secretaria/turmas" className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-700 mb-6 transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Voltar para turmas
+      <Link href={`/secretaria/turmas/${turmaId}`} className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-700 mb-6 transition-colors">
+        <ArrowLeft className="w-4 h-4" /> Voltar para a turma
       </Link>
 
       <div className="mb-6">
@@ -205,13 +208,13 @@ export default function VincularDisciplinasPage() {
                     {profsTurma.length > 0 && (
                       <div className="space-y-1.5 mb-3">
                         {profsTurma.map((v) => (
-                          <div key={v.professorId} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-purple-100">
+                          <div key={v.professor.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-purple-100">
                             <div>
                               <p className="text-sm font-medium text-gray-900">{v.professor.name || "Sem nome"}</p>
                               <p className="text-xs text-gray-400">{v.professor.email}</p>
                             </div>
                             <button
-                              onClick={() => desvincularProfessor(disc.id, v.professorId)}
+                              onClick={() => desvincularProfessor(disc.id, v.professor.id)}
                               className="text-gray-300 hover:text-red-400 transition-colors"
                             >
                               <X className="w-4 h-4" />
@@ -244,13 +247,9 @@ export default function VincularDisciplinasPage() {
                         </div>
                       </div>
                     ) : profsTurma.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">
-                        Nenhum professor cadastrou esta disciplina no perfil ainda.
-                      </p>
+                      <p className="text-xs text-gray-400 italic">Nenhum professor disponível para esta disciplina.</p>
                     ) : (
-                      <p className="text-xs text-gray-400 italic">
-                        Todos os professores disponíveis ja foram adicionados.
-                      </p>
+                      <p className="text-xs text-gray-400 italic">Todos os professores disponíveis já foram adicionados.</p>
                     )}
                   </div>
                 )}

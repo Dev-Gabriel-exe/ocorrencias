@@ -84,6 +84,7 @@ model Disciplina {
   professores     ProfessorDisciplina[]
   turmas          DisciplinaTurma[]
   motivos         Motivo[]
+  motivosExcluidos Motivo[] @relation("MotivosDisciplinasExcluidas")
   ocorrencias     Ocorrencia[]
   professorTurmas ProfessorDisciplinaTurma[]
 }
@@ -161,6 +162,8 @@ model Motivo {
   ativo        Boolean     @default(true)
 
   ocorrencias Ocorrencia[]
+  disciplinasExcluidas Disciplina[] @relation("MotivosDisciplinasExcluidas")
+
 }
 
 model Ocorrencia {

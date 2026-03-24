@@ -1,9 +1,10 @@
-"use client";
 // src/app/secretaria/turmas/page.tsx
+"use client";
 import { useState, useEffect } from "react";
-import { Plus, School, Users, Pencil, Loader2, X } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Plus, School, Users, Loader2, X } from "lucide-react";
 
-const NIVEIS = [
+const TODOS_NIVEIS = [
   { value: "FUND_I", label: "Fundamental I (1º ao 5º)" },
   { value: "FUND_II", label: "Fundamental II (6º ao 9º)" },
   { value: "MEDIO", label: "Ensino Médio" },
@@ -12,11 +13,23 @@ const NIVEIS = [
 const TURNOS = ["Manhã", "Tarde", "Noite"];
 
 export default function TurmasPage() {
+  const { data: session } = useSession();
+  const role = session?.user?.role ?? "";
+
+  // CORREÇÃO: filtra níveis permitidos pelo role
+  const NIVEIS = TODOS_NIVEIS.filter((n) => {
+    if (role === "SECRETARIA_FUND1") return n.value === "FUND_I";
+    if (role === "SECRETARIA_FUND2") return n.value === "FUND_II" || n.value === "MEDIO";
+    return true; // SECRETARIA_GERAL vê todos
+  });
+
+  const nivelPadrao = NIVEIS[0]?.value ?? "FUND_II";
+
   const [turmas, setTurmas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [salvando, setSalvando] = useState(false);
-  const [form, setForm] = useState({ nome: "", serie: "", turno: "Manhã", nivel: "FUND_II", anoLetivo: 2026 });
+  const [form, setForm] = useState({ nome: "", serie: "", turno: "Manhã", nivel: nivelPadrao, anoLetivo: 2026 });
 
   async function carregar() {
     const res = await fetch("/api/turmas");
@@ -25,6 +38,11 @@ export default function TurmasPage() {
   }
 
   useEffect(() => { carregar(); }, []);
+
+  // Atualiza o nível padrão quando a sessão carrega
+  useEffect(() => {
+    if (NIVEIS.length > 0) setForm((f) => ({ ...f, nivel: NIVEIS[0].value }));
+  }, [role]);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -36,7 +54,7 @@ export default function TurmasPage() {
     });
     if (res.ok) {
       setShowForm(false);
-      setForm({ nome: "", serie: "", turno: "Manhã", nivel: "FUND_II", anoLetivo: 2026 });
+      setForm({ nome: "", serie: "", turno: "Manhã", nivel: nivelPadrao, anoLetivo: 2026 });
       await carregar();
     }
     setSalvando(false);
@@ -48,16 +66,19 @@ export default function TurmasPage() {
     await carregar();
   }
 
-  const nivelLabel: Record<string, string> = {
-    FUND_I: "Fund. I",
-    FUND_II: "Fund. II",
-    MEDIO: "Médio",
-  };
+  const nivelLabel: Record<string, string> = { FUND_I: "Fund. I", FUND_II: "Fund. II", MEDIO: "Médio" };
   const nivelColor: Record<string, string> = {
     FUND_I: "bg-green-100 text-green-700",
     FUND_II: "bg-blue-100 text-blue-700",
     MEDIO: "bg-purple-100 text-purple-700",
   };
+
+  // CORREÇÃO: filtra turmas pelo nível do role
+  const turmasFiltradas = turmas.filter((t) => {
+    if (role === "SECRETARIA_FUND1") return t.nivel === "FUND_I";
+    if (role === "SECRETARIA_FUND2") return t.nivel === "FUND_II" || t.nivel === "MEDIO";
+    return true;
+  });
 
   return (
     <div>
@@ -66,16 +87,12 @@ export default function TurmasPage() {
           <h1 className="text-2xl font-bold text-gray-900">Turmas</h1>
           <p className="text-gray-500 text-sm mt-1">Gerencie as turmas da escola</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Nova turma
+        <button onClick={() => setShowForm(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors">
+          <Plus className="w-4 h-4" /> Nova turma
         </button>
       </div>
 
-      {/* Modal nova turma */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
@@ -132,19 +149,18 @@ export default function TurmasPage() {
         </div>
       )}
 
-      {/* Lista de turmas */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
         </div>
-      ) : turmas.length === 0 ? (
+      ) : turmasFiltradas.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
           <School className="w-12 h-12 text-gray-200 mx-auto mb-3" />
           <p className="text-gray-500">Nenhuma turma cadastrada.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {turmas.map((turma: any) => (
+          {turmasFiltradas.map((turma: any) => (
             <div key={turma.id} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -163,16 +179,12 @@ export default function TurmasPage() {
                 <span>{turma._count?.ocorrencias ?? 0} ocorrências</span>
               </div>
               <div className="flex gap-2">
-                <a
-                  href={`/secretaria/turmas/${turma.id}`}
-                  className="flex-1 text-xs px-3 py-1.5 border border-purple-200 rounded-lg text-purple-600 hover:bg-purple-50 transition-colors text-center font-medium"
-                >
+                <a href={`/secretaria/turmas/${turma.id}`}
+                  className="flex-1 text-xs px-3 py-1.5 border border-purple-200 rounded-lg text-purple-600 hover:bg-purple-50 transition-colors text-center font-medium">
                   Ver detalhes
                 </a>
-                <button
-                  onClick={() => desativar(turma.id)}
-                  className="flex-1 text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-colors"
-                >
+                <button onClick={() => desativar(turma.id)}
+                  className="flex-1 text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-colors">
                   Desativar
                 </button>
               </div>

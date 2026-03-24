@@ -1,8 +1,9 @@
-"use client";
 // src/components/turma/lista-alunos-interativa.tsx
+"use client";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { UserCircle } from "lucide-react";
+import { UserCircle, Users } from "lucide-react";
 import { EstrelasControl } from "@/components/estrelas/estrelas-input";
 import { ModalOcorrencia } from "@/components/ocorrencias/modal-ocorrencia";
 
@@ -33,8 +34,16 @@ interface Props {
   professorId: string;
 }
 
-export function ListaAlunosInterativa({ alunos, turmaId, motivos, disciplinasDoProfessor }: Props) {
+export function ListaAlunosInterativa({ alunos: alunosIniciais, turmaId, motivos, disciplinasDoProfessor }: Props) {
   const router = useRouter();
+  // CORREÇÃO: estado local dos alunos para atualizar estrelas sem recarregar página
+  const [alunos, setAlunos] = useState(alunosIniciais);
+
+  function atualizarEstrelas(alunoId: string, novasEstrelas: number) {
+    setAlunos((prev) =>
+      prev.map((a) => (a.id === alunoId ? { ...a, estrelas: novasEstrelas } : a))
+    );
+  }
 
   if (alunos.length === 0) {
     return (
@@ -59,7 +68,7 @@ export function ListaAlunosInterativa({ alunos, turmaId, motivos, disciplinasDoP
           <div key={aluno.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
             <div className="grid grid-cols-12 items-center gap-4">
               <span className="col-span-1 text-sm text-gray-300 font-mono">
-                {String(idx + 1).padStart(2, "00")}
+                {String(idx + 1).padStart(2, "0")}
               </span>
               <div className="col-span-4">
                 <Link
@@ -76,7 +85,7 @@ export function ListaAlunosInterativa({ alunos, turmaId, motivos, disciplinasDoP
                 <EstrelasControl
                   alunoId={aluno.id}
                   value={aluno.estrelas}
-                  onUpdate={() => router.refresh()}
+                  onUpdate={(novas) => atualizarEstrelas(aluno.id, novas)}
                 />
               </div>
             </div>
@@ -86,6 +95,12 @@ export function ListaAlunosInterativa({ alunos, turmaId, motivos, disciplinasDoP
                 turmaId={turmaId}
                 motivos={motivos}
                 disciplinasDoProfessor={disciplinasDoProfessor}
+                onSucesso={(deltaEstrelas) => {
+                  // CORREÇÃO: atualiza estrelas localmente após registrar ocorrência
+                  const novas = Math.min(10, Math.max(0, aluno.estrelas + deltaEstrelas));
+                  atualizarEstrelas(aluno.id, novas);
+                  router.refresh();
+                }}
               />
             </div>
           </div>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LayoutDashboard, Users, School, Tag, BarChart3, LogOut, BookOpen, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Users, School, Tag, BarChart3, LogOut, BookOpen, ClipboardList, UserCog } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { href: "/secretaria/ocorrencias", label: "Ocorrências", icon: ClipboardList, badge: true },
   { href: "/secretaria/turmas", label: "Turmas", icon: School },
   { href: "/secretaria/alunos", label: "Alunos", icon: Users },
+  { href: "/secretaria/professores", label: "Professores", icon: UserCog },
   { href: "/secretaria/motivos", label: "Motivos", icon: Tag },
   { href: "/secretaria/relatorios", label: "Relatórios", icon: BarChart3 },
 ];

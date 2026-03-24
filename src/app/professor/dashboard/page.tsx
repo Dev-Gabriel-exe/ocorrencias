@@ -2,7 +2,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { School, ClipboardList, CalendarDays, ChevronRight, AlertCircle } from "lucide-react";
+import { School, ClipboardList, CalendarDays, ChevronRight, AlertCircle, Users } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -10,7 +10,6 @@ export default async function DashboardProfessor() {
   const session = await auth();
   const professorId = session!.user.id;
 
-  // Busca turmas via ProfessorDisciplinaTurma
   const vinculos = await prisma.professorDisciplinaTurma.findMany({
     where: { professorId },
     select: { turmaId: true },
@@ -26,7 +25,6 @@ export default async function DashboardProfessor() {
       })
     : [];
 
-  // Ocorrências de hoje
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
   const amanha = new Date(hoje);
@@ -36,10 +34,10 @@ export default async function DashboardProfessor() {
     where: {
       professorId,
       data: { gte: hoje, lt: amanha },
+      aluno: { ativo: true },
     },
   });
 
-  // Lembretes próximos (próximos 7 dias)
   const lembretes = await prisma.lembrete.findMany({
     where: {
       professorId,
@@ -58,13 +56,22 @@ export default async function DashboardProfessor() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Olá, {professor?.name?.split(" ")[0]} 👋
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">
-          {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-        </p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Olá, {professor?.name?.split(" ")[0]} 👋
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+          </p>
+        </div>
+        <Link
+          href="/professor/ocorrencias/massa"
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors flex-shrink-0"
+        >
+          <Users className="w-4 h-4" />
+          Ocorrência em Massa
+        </Link>
       </div>
 
       {/* Cards de resumo */}

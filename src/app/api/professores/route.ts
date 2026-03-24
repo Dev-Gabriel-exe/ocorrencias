@@ -10,10 +10,18 @@ export async function GET() {
   }
 
   const professores = await prisma.user.findMany({
-    where: { role: "PROFESSOR" },
-    select: { id: true, name: true, email: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      nivelEnsino: true,
+      disciplinas: { include: { disciplina: { select: { id: true, nome: true } } } },
+    },
     orderBy: { name: "asc" },
   });
 
-  return NextResponse.json(professores);
+  return NextResponse.json(
+    professores.map((p) => ({ ...p, disciplinas: p.disciplinas ?? [] }))
+  );
 }

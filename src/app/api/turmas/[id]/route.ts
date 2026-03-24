@@ -14,12 +14,18 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     include: {
       alunos: { where: { ativo: true }, orderBy: { nome: "asc" } },
       disciplinas: {
-        include: { disciplina: true },
-      },
-      professorDisciplinas: {
         include: {
-          professor: { select: { id: true, name: true, email: true } },
-          disciplina: { select: { id: true, nome: true } },
+          disciplina: {
+            include: {
+              // CORREÇÃO: inclui os professores vinculados a esta disciplina nesta turma
+              professorTurmas: {
+                where: { turmaId: id },
+                include: {
+                  professor: { select: { id: true, name: true, email: true } },
+                },
+              },
+            },
+          },
         },
       },
       _count: { select: { ocorrencias: true } },
@@ -46,18 +52,11 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   if (!session || session.user.role === "PROFESSOR") {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
-
   const { id } = await params;
 
   await prisma.$transaction([
-    prisma.aluno.updateMany({
-      where: { turmaId: id },
-      data: { ativo: false },
-    }),
-    prisma.turma.update({
-      where: { id },
-      data: { ativa: false },
-    }),
+    prisma.aluno.updateMany({ where: { turmaId: id }, data: { ativo: false } }),
+    prisma.turma.update({ where: { id }, data: { ativa: false } }),
   ]);
 
   return NextResponse.json({ ok: true });

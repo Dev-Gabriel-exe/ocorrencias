@@ -22,7 +22,7 @@ interface DisciplinaDaTurma {
   disciplina: {
     id: string;
     nome: string;
-    professores: {
+    professorTurmas: {  // era "professores", agora é "professorTurmas"
       professor: { id: string; name: string | null; email: string | null };
     }[];
   };
@@ -220,11 +220,11 @@ export default function TurmaDetalhePage() {
                     className="text-xs bg-purple-50 text-purple-700 px-3 py-1 rounded-full"
                   >
                     {d.disciplina.nome}
-                    {d.disciplina.professores.length > 0 && (
-                      <span className="text-purple-400 ml-1">
-                        · {d.disciplina.professores.map((p) => p.professor.name).join(", ")}
-                      </span>
-                    )}
+                    {(d.disciplina.professorTurmas?.length ?? 0) > 0 && (
+  <span className="text-purple-400 ml-1">
+    · {d.disciplina.professorTurmas.map((p) => p.professor.name).join(", ")}
+  </span>
+)}
                   </span>
                 ))}
               </div>
