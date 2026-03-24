@@ -46,49 +46,57 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {
-  try {
-    console.log("[authorize] tentando login:", credentials?.email);
+        try {
+          if (!credentials?.email || !credentials?.password) return null;
 
-    if (!credentials?.email || !credentials?.password) {
-      console.log("[authorize] credenciais vazias");
-      return null;
-    }
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string },
+          });
 
-    const user = await prisma.user.findUnique({
-      where: { email: credentials.email as string },
-    });
+          if (!user || !user.password) return null;
 
-    console.log("[authorize] user encontrado:", !!user, "tem senha:", !!user?.password, "role:", user?.role);
+          const passwordMatch = await bcrypt.compare(
+            credentials.password as string,
+            user.password
+          );
 
-    if (!user || !user.password) return null;
+          if (!passwordMatch) return null;
+          if (user.role === "PROFESSOR") return null;
 
-    const passwordMatch = await bcrypt.compare(
-      credentials.password as string,
-      user.password
-    );
-
-    console.log("[authorize] senha confere:", passwordMatch);
-
-    if (!passwordMatch) return null;
-    if (user.role === "PROFESSOR") {
-      console.log("[authorize] bloqueado: é professor");
-      return null;
-    }
-
-    console.log("[authorize] sucesso, retornando user");
-    return user;
-  } catch (err) {
-    console.error("[authorize] ERRO:", err);
-    return null;
-  }
-},
+          // Retorna explicitamente com id como string
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          };
+        } catch (err) {
+          console.error("[authorize] error:", err);
+          return null;
+        }
+      },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
-        token.id = user.id!;
+        token.id = user.id as string;
         token.role = ((user as any).role ?? "PROFESSOR") as Role;
+      }
+      // Para Google: busca role do banco na primeira vez
+      if (account?.provider === "google" && user?.email) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: user.email },
+            select: { id: true, role: true },
+          });
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role;
+          }
+        } catch (err) {
+          console.error("[jwt google] error:", err);
+        }
       }
       return token;
     },
