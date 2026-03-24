@@ -1,17 +1,22 @@
 // src/middleware.ts
-import { auth } from "@/lib/auth";
-import { NextResponse } from "next/server";
 
-export default auth((req) => {
-  const { nextUrl, auth: session } = req;
-  const isLoggedIn = !!session;
-  const role = session?.user?.role;
+import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
+import type { NextRequest } from "next/server";
+
+export async function middleware(req: NextRequest) {
+  const token = await getToken({ req });
+  
+  const isLoggedIn = !!token;
+  const role = token?.role as string | undefined;
+
+  const { nextUrl } = req;
 
   const isProfessorRoute = nextUrl.pathname.startsWith("/professor");
   const isSecretariaRoute = nextUrl.pathname.startsWith("/secretaria");
   const isLoginPage = nextUrl.pathname === "/login";
 
-  // Redireciona usuário logado que tenta acessar login
+  // logged user accessing login
   if (isLoggedIn && isLoginPage) {
     if (role === "PROFESSOR") {
       return NextResponse.redirect(new URL("/professor/dashboard", nextUrl));
@@ -19,26 +24,23 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/secretaria/dashboard", nextUrl));
   }
 
-  // Redireciona usuário não logado tentando acessar rotas protegidas
+  // not logged user accessing protected routes
   if (!isLoggedIn && (isProfessorRoute || isSecretariaRoute)) {
     return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
-  // Secretaria tentando acessar rota de professor
+  // secretaria accessing professor route
   if (isLoggedIn && isProfessorRoute && role !== "PROFESSOR") {
     return NextResponse.redirect(new URL("/secretaria/dashboard", nextUrl));
   }
 
-  // Professor tentando acessar rota de secretaria
+  // professor accessing secretaria route
   if (isLoggedIn && isSecretariaRoute && role === "PROFESSOR") {
     return NextResponse.redirect(new URL("/professor/dashboard", nextUrl));
   }
 
-  // Secretaria Fund. I tentando acessar turmas de Fund. II / Médio
-  // (Validação mais granular é feita nas API routes)
-
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [
