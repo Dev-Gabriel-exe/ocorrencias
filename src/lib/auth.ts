@@ -46,29 +46,42 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {
-        try {
-          if (!credentials?.email || !credentials?.password) return null;
+  try {
+    console.log("[authorize] tentando login:", credentials?.email);
 
-          const user = await prisma.user.findUnique({
-            where: { email: credentials.email as string },
-          });
+    if (!credentials?.email || !credentials?.password) {
+      console.log("[authorize] credenciais vazias");
+      return null;
+    }
 
-          if (!user || !user.password) return null;
+    const user = await prisma.user.findUnique({
+      where: { email: credentials.email as string },
+    });
 
-          const passwordMatch = await bcrypt.compare(
-            credentials.password as string,
-            user.password
-          );
+    console.log("[authorize] user encontrado:", !!user, "tem senha:", !!user?.password, "role:", user?.role);
 
-          if (!passwordMatch) return null;
-          if (user.role === "PROFESSOR") return null;
+    if (!user || !user.password) return null;
 
-          return user;
-        } catch (err) {
-          console.error("[authorize] error:", err);
-          return null;
-        }
-      },
+    const passwordMatch = await bcrypt.compare(
+      credentials.password as string,
+      user.password
+    );
+
+    console.log("[authorize] senha confere:", passwordMatch);
+
+    if (!passwordMatch) return null;
+    if (user.role === "PROFESSOR") {
+      console.log("[authorize] bloqueado: é professor");
+      return null;
+    }
+
+    console.log("[authorize] sucesso, retornando user");
+    return user;
+  } catch (err) {
+    console.error("[authorize] ERRO:", err);
+    return null;
+  }
+},
     }),
   ],
   callbacks: {
