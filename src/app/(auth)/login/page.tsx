@@ -724,12 +724,7 @@ export default function LoginPage() {
                       {loading ? "Autenticando..." : "Acessar Sistema"}
                     </button>
 
-                    <div className="hint-box">
-                      <div className="hint-title">Credenciais de acesso</div>
-                      <div className="hint-row">secretaria@escola.com · SecGeral@2026</div>
-                      <div className="hint-row">fund1@escola.com · Fund1@2026</div>
-                      <div className="hint-row">fund2@escola.com · Fund2@2026</div>
-                    </div>
+                    
                   </form>
                 )}
               </div>
