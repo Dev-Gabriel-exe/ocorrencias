@@ -19,6 +19,7 @@
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
     "@neondatabase/serverless": "^0.10.4",
+    "@prisma/adapter-neon": "^7.5.0",
     "@prisma/client": "^6.3.0",
     "bcryptjs": "^2.4.3",
     "date-fns": "^4.1.0",
