@@ -1,5 +1,4 @@
 // src/lib/auth.ts
-
 import NextAuth from "next-auth";
 import type { DefaultSession } from "next-auth";
 import type { JWT } from "next-auth/jwt";
@@ -27,8 +26,9 @@ declare module "next-auth" {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,  
-  secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
+  // CORREÇÃO: usa AUTH_SECRET (padrão NextAuth v5) com fallback
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
 
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
@@ -65,7 +65,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         );
 
         if (!passwordMatch) return null;
-
         if (user.role === "PROFESSOR") return null;
 
         return user;
@@ -76,8 +75,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user?.id) {
+        // CORREÇÃO: busca do banco para garantir que pega o role correto
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { id: true, role: true },
+        });
         token.id = user.id;
-        token.role = user.role as Role;
+        token.role = dbUser?.role ?? "PROFESSOR";
       }
       return token;
     },
@@ -94,13 +98,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === "google") {
         const existingUser = await prisma.user.findUnique({
           where: { email: user.email! },
+          select: { role: true },
         });
 
+        // Novo usuário via Google — cria como PROFESSOR (padrão do schema)
         if (!existingUser) return true;
 
-        if (existingUser.role !== "PROFESSOR") {
-          return false;
-        }
+        // Bloqueia secretaria de entrar via Google
+        if (existingUser.role !== "PROFESSOR") return false;
       }
       return true;
     },
