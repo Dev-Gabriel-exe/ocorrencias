@@ -178,7 +178,7 @@ export default function AlunoPage() {
                     <p className="text-sm text-gray-700">{oc.descricao}</p>
                     <p className="text-xs text-gray-400 mt-1">
                       {oc.professor.name}
-                      {oc.professor.disciplinas?.map((d: any) => d.disciplina.nome).join(", ")}
+                      {oc.professor.discipline}
                     </p>
                   </div>
                   <span className="text-xs text-gray-400 whitespace-nowrap">

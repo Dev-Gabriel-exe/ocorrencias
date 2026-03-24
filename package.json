@@ -17,7 +17,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@auth/prisma-adapter": "^2.7.4",
+    "@auth/prisma-adapter": "^2.11.1",
     "@neondatabase/serverless": "^0.10.4",
     "@prisma/client": "^6.3.0",
     "bcryptjs": "^2.4.3",
@@ -26,7 +26,7 @@
     "jspdf-autotable": "^3.8.4",
     "lucide-react": "^0.469.0",
     "next": "15.1.5",
-    "next-auth": "^5.0.0-beta.25",
+    "next-auth": "^5.0.0-beta.30",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
@@ -46,5 +46,8 @@
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.19.2",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@auth/core": "0.41.0"
   }
 }

@@ -5,15 +5,17 @@ import { prisma } from "@/lib/prisma";
 
 export async function DELETE(
   _: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session || session.user.role === "PROFESSOR") {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   await prisma.aluno.update({
-    where: { id: params.id },
+    where: { id },
     data: { ativo: false },
   });
 
@@ -22,13 +24,15 @@ export async function DELETE(
 
 export async function GET(
   _: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
+  const { id } = await params;
+
   const aluno = await prisma.aluno.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       turma: { select: { id: true, nome: true } },
       ocorrencias: {
@@ -48,16 +52,18 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session || session.user.role === "PROFESSOR") {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
+  const { id } = await params;
   const body = await req.json();
+
   const aluno = await prisma.aluno.update({
-    where: { id: params.id },
+    where: { id },
     data: body,
   });
 
