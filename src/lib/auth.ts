@@ -8,21 +8,6 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@prisma/client";
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string;
-    role: Role;
-  }
-}
-
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      role: Role;
-    } & DefaultSession["user"];
-  }
-}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -62,7 +47,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!passwordMatch) return null;
         if (user.role === "PROFESSOR") return null;
 
-        // Retorna apenas os campos necessários, sem campos extras do Prisma
         return {
           id: user.id,
           name: user.name,
@@ -74,25 +58,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id!;
-        token.role = ((user as any).role ?? "PROFESSOR") as Role;
+        token.role = (user.role ?? "PROFESSOR") as Role;
       }
-      // Garante que o role sempre está no token, mesmo após refresh
       if (!token.role && token.id) {
         const dbUser = await prisma.user.findUnique({
-          where: { id: token.id },
+          where: { id: token.id as string },
           select: { role: true },
         });
-        if (dbUser) token.role = dbUser.role;
+        if (dbUser) token.role = dbUser.role as Role;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id;
-        session.user.role = token.role;
+        session.user.id = token.id as string;
+        session.user.role = token.role as Role;
       }
       return session;
     },
@@ -102,7 +85,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { email: user.email! },
           select: { role: true },
         });
-        // Bloqueia não-professores de logar com Google
         if (existingUser && existingUser.role !== "PROFESSOR") return false;
       }
       return true;
