@@ -105,28 +105,33 @@ export default function LoginPage() {
   }, []);
 
   async function handleGoogle() {
-    setLoading(true);
-    await signIn("google", { callbackUrl: "/professor/dashboard", redirect: true });
-  }
+  setLoading(true);
+  await signIn("google", {
+    callbackUrl: "/professor/dashboard",
+    redirect: true,
+  });
+}
+
 
   async function handleCredentials(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
+  e.preventDefault();
+  setLoading(true);
+  setError("");
 
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+  const res = await signIn("credentials", {
+    email,
+    password,
+    redirect: false,
+  });
 
-    if (res?.error) {
-      setError("Email ou senha inválidos.");
-      setLoading(false);
-    } else {
-      router.push("/secretaria/dashboard");
-    }
+  if (res?.error || !res?.ok) {
+    setError("Email ou senha inválidos.");
+    setLoading(false);
+  } else {
+    // CORREÇÃO: window.location força reload completo sincronizando sessão
+    window.location.href = "/secretaria/dashboard";
   }
+}
 
   return (
     <>

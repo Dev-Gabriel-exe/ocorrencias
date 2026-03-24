@@ -27,24 +27,19 @@ declare module "next-auth" {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
-  // CORREÇÃO: usa AUTH_SECRET (padrão NextAuth v5) com fallback
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
-
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
-
   pages: {
     signIn: "/login",
     error: "/login",
   },
-
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       allowDangerousEmailAccountLinking: true,
     }),
-
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -52,41 +47,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        try {
+          if (!credentials?.email || !credentials?.password) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string },
+          });
 
-        if (!user || !user.password) return null;
+          if (!user || !user.password) return null;
 
-        const passwordMatch = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
+          const passwordMatch = await bcrypt.compare(
+            credentials.password as string,
+            user.password
+          );
 
-        if (!passwordMatch) return null;
-        if (user.role === "PROFESSOR") return null;
+          if (!passwordMatch) return null;
+          if (user.role === "PROFESSOR") return null;
 
-        return user;
+          return user;
+        } catch (err) {
+          console.error("[authorize] error:", err);
+          return null;
+        }
       },
     }),
   ],
-
   callbacks: {
     async jwt({ token, user }) {
       if (user?.id) {
-        // CORREÇÃO: busca do banco para garantir que pega o role correto
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: { id: true, role: true },
-        });
-        token.id = user.id;
-        token.role = dbUser?.role ?? "PROFESSOR";
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { id: true, role: true },
+          });
+          token.id = user.id;
+          token.role = (dbUser?.role ?? "PROFESSOR") as Role;
+        } catch (err) {
+          console.error("[jwt] error:", err);
+          token.id = user.id;
+          token.role = "PROFESSOR" as Role;
+        }
       }
       return token;
     },
-
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id;
@@ -94,19 +97,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return session;
     },
-
     async signIn({ user, account }) {
       if (account?.provider === "google") {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-          select: { role: true },
-        });
-
-        // Novo usuário via Google — cria como PROFESSOR (padrão do schema)
-        if (!existingUser) return true;
-
-        // Bloqueia secretaria de entrar via Google
-        if (existingUser.role !== "PROFESSOR") return false;
+        try {
+          const existingUser = await prisma.user.findUnique({
+            where: { email: user.email! },
+            select: { role: true },
+          });
+          if (!existingUser) return true;
+          if (existingUser.role !== "PROFESSOR") return false;
+        } catch (err) {
+          console.error("[signIn] error:", err);
+          return false;
+        }
       }
       return true;
     },
