@@ -46,57 +46,46 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {
-        try {
-          if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.email || !credentials?.password) return null;
 
-          const user = await prisma.user.findUnique({
-            where: { email: credentials.email as string },
-          });
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email as string },
+        });
 
-          if (!user || !user.password) return null;
+        if (!user || !user.password) return null;
 
-          const passwordMatch = await bcrypt.compare(
-            credentials.password as string,
-            user.password
-          );
+        const passwordMatch = await bcrypt.compare(
+          credentials.password as string,
+          user.password
+        );
 
-          if (!passwordMatch) return null;
-          if (user.role === "PROFESSOR") return null;
+        if (!passwordMatch) return null;
+        if (user.role === "PROFESSOR") return null;
 
-          // Retorna explicitamente com id como string
-          return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-          };
-        } catch (err) {
-          console.error("[authorize] error:", err);
-          return null;
-        }
+        // Retorna apenas os campos necessários, sem campos extras do Prisma
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          role: user.role,
+        };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
-        token.id = user.id as string;
+        token.id = user.id!;
         token.role = ((user as any).role ?? "PROFESSOR") as Role;
       }
-      // Para Google: busca role do banco na primeira vez
-      if (account?.provider === "google" && user?.email) {
-        try {
-          const dbUser = await prisma.user.findUnique({
-            where: { email: user.email },
-            select: { id: true, role: true },
-          });
-          if (dbUser) {
-            token.id = dbUser.id;
-            token.role = dbUser.role;
-          }
-        } catch (err) {
-          console.error("[jwt google] error:", err);
-        }
+      // Garante que o role sempre está no token, mesmo após refresh
+      if (!token.role && token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id },
+          select: { role: true },
+        });
+        if (dbUser) token.role = dbUser.role;
       }
       return token;
     },
@@ -109,17 +98,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async signIn({ user, account }) {
       if (account?.provider === "google") {
-        try {
-          const existingUser = await prisma.user.findUnique({
-            where: { email: user.email! },
-            select: { role: true },
-          });
-          if (!existingUser) return true;
-          if (existingUser.role !== "PROFESSOR") return false;
-        } catch (err) {
-          console.error("[signIn] error:", err);
-          return false;
-        }
+        const existingUser = await prisma.user.findUnique({
+          where: { email: user.email! },
+          select: { role: true },
+        });
+        // Bloqueia não-professores de logar com Google
+        if (existingUser && existingUser.role !== "PROFESSOR") return false;
       }
       return true;
     },
