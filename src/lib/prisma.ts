@@ -4,14 +4,14 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 
-// Necessário para funcionar no Node.js (Vercel)
 neonConfig.webSocketConstructor = ws;
 
 const connectionString = process.env.DATABASE_URL!;
 
 function createPrismaClient() {
   const pool = new Pool({ connectionString });
-  const adapter = new PrismaNeon(pool);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adapter = new PrismaNeon(pool as any);
   return new PrismaClient({ adapter });
 }
 
