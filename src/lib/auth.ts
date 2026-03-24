@@ -1,108 +1,118 @@
 // src/lib/auth.ts
-import NextAuth from "next-auth";
-import type { DefaultSession } from "next-auth";
-import type { JWT } from "next-auth/jwt";
+
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "@/lib/prisma";
+import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
-import type { Role } from "@prisma/client";
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string;
-    role: Role;
-  }
-}
+export type Role = "PROFESSOR" | "SECRETARIA";
 
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      role: Role;
-    } & DefaultSession["user"];
-  }
-}
-
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
-  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-    error: "/login",
+
+  session: {
+    strategy: "jwt",
   },
+
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
     }),
+
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Senha", type: "password" },
+        email: {},
+        password: {},
       },
+
       async authorize(credentials) {
-        try {
-          if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.email || !credentials?.password) return null;
 
-          const user = await prisma.user.findUnique({
-            where: { email: credentials.email as string },
-          });
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
 
-          if (!user || !user.password) return null;
+        if (!user || !user.password) return null;
 
-          const passwordMatch = await bcrypt.compare(
-            credentials.password as string,
-            user.password
-          );
+        const isValid = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
 
-          if (!passwordMatch) return null;
-          if (user.role === "PROFESSOR") return null;
+        if (!isValid) return null;
 
-          return user;
-        } catch (err) {
-          console.error("[authorize] error:", err);
-          return null;
-        }
+        // secretaria only
+        if (user.role === "PROFESSOR") return null;
+
+        return user;
       },
     }),
   ],
+
   callbacks: {
-  async jwt({ token, user }) {
-    // CORREÇÃO: usa os dados que já vieram do authorize, sem query extra
-    if (user) {
-      token.id = user.id;
-      token.role = ((user as any).role ?? "PROFESSOR") as Role;
-    }
-    return token;
-  },
-    async session({ session, token }) {
-    if (token) {
-      session.user.id = token.id;
-      session.user.role = token.role;
-    }
-    return session;
-  },
     async signIn({ user, account }) {
-    if (account?.provider === "google") {
-      try {
+      if (account?.provider === "google") {
         const existingUser = await prisma.user.findUnique({
           where: { email: user.email! },
-          select: { role: true },
         });
-        if (!existingUser) return true;
+
+        // cria professor automaticamente
+        if (!existingUser) {
+          await prisma.user.create({
+            data: {
+              email: user.email!,
+              name: user.name,
+              role: "PROFESSOR",
+            },
+          });
+          return true;
+        }
+
+        // bloqueia se não for professor
         if (existingUser.role !== "PROFESSOR") return false;
-      } catch (err) {
-        console.error("[signIn] error:", err);
-        return false;
+
+        return true;
       }
-    }
-    return true;
+
+      return true;
+    },
+
+    async jwt({ token, user }) {
+      // primeiro login
+      if (user?.id) {
+        token.id = user.id;
+        token.role = (user as any).role ?? "PROFESSOR";
+      }
+
+      // fallback (resolve loop do google)
+      if (token.id && !token.role) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+        });
+
+        if (dbUser) {
+          token.role = dbUser.role;
+        }
+      }
+
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (token && session.user) {
+        session.user.id = token.id as string;
+        session.user.role = token.role as Role;
+      }
+
+      return session;
+    },
   },
-},
-});
+
+  pages: {
+    signIn: "/login",
+  },
+};
