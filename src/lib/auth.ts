@@ -1,5 +1,8 @@
 // src/lib/auth.ts
+
 import NextAuth from "next-auth";
+import type { DefaultSession } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -7,21 +10,39 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@prisma/client";
 
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role: Role;
+  }
+}
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      role: Role;
+    } & DefaultSession["user"];
+  }
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.NEXTAUTH_SECRET,
+
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
+
   pages: {
     signIn: "/login",
     error: "/login",
   },
+
   providers: [
-    // ── Google OAuth (Professores) ──────────────────────────────────────────
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
 
-    // ── Credenciais (Secretaria) ────────────────────────────────────────────
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -44,7 +65,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!passwordMatch) return null;
 
-        // Apenas secretaria pode usar credenciais
         if (user.role === "PROFESSOR") return null;
 
         return user;
@@ -53,38 +73,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
 
   callbacks: {
-    // Salva role e id no token JWT
     async jwt({ token, user }) {
-      if (user) {
-        token.role = user.role as Role;
+      if (user?.id) {
         token.id = user.id;
+        token.role = user.role as Role;
       }
       return token;
     },
 
-    // Expõe role e id na session do client
     async session({ session, token }) {
       if (token) {
-        session.user.role = token.role as Role;
-        session.user.id = token.id as string;
+        session.user.id = token.id;
+        session.user.role = token.role;
       }
       return session;
     },
 
-    // Garante que professores logando pelo Google tenham role PROFESSOR
     async signIn({ user, account }) {
       if (account?.provider === "google") {
         const existingUser = await prisma.user.findUnique({
           where: { email: user.email! },
         });
 
-        // Se usuário novo via Google, cria com role PROFESSOR
         if (!existingUser) return true;
 
-        // Se é da secretaria, não deixa logar via Google
-        if (
-          existingUser.role !== "PROFESSOR"
-        ) {
+        if (existingUser.role !== "PROFESSOR") {
           return false;
         }
       }
@@ -92,16 +105,3 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
-
-// Extende os tipos do NextAuth
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-      role: Role;
-    };
-  }
-}
