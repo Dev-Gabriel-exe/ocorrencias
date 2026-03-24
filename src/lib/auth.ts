@@ -80,14 +80,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
     async signIn({ user, account }) {
-      if (account?.provider === "google") {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-          select: { role: true },
-        });
-        if (existingUser && existingUser.role !== "PROFESSOR") return false;
-      }
-      return true;
-    },
+  console.log("[signIn]", { 
+    provider: account?.provider, 
+    email: user.email,
+    userId: user.id 
+  });
+  if (account?.provider === "google") {
+    const existingUser = await prisma.user.findUnique({
+      where: { email: user.email! },
+      select: { role: true },
+    });
+    console.log("[signIn] existingUser:", existingUser);
+    if (existingUser && existingUser.role !== "PROFESSOR") return false;
+  }
+  return true;
+},
   },
 });
