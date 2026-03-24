@@ -73,45 +73,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      if (user?.id) {
-        try {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
-            select: { id: true, role: true },
-          });
-          token.id = user.id;
-          token.role = (dbUser?.role ?? "PROFESSOR") as Role;
-        } catch (err) {
-          console.error("[jwt] error:", err);
-          token.id = user.id;
-          token.role = "PROFESSOR" as Role;
-        }
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id;
-        session.user.role = token.role;
-      }
-      return session;
-    },
-    async signIn({ user, account }) {
-      if (account?.provider === "google") {
-        try {
-          const existingUser = await prisma.user.findUnique({
-            where: { email: user.email! },
-            select: { role: true },
-          });
-          if (!existingUser) return true;
-          if (existingUser.role !== "PROFESSOR") return false;
-        } catch (err) {
-          console.error("[signIn] error:", err);
-          return false;
-        }
-      }
-      return true;
-    },
+  async jwt({ token, user }) {
+    // CORREÇÃO: usa os dados que já vieram do authorize, sem query extra
+    if (user) {
+      token.id = user.id;
+      token.role = ((user as any).role ?? "PROFESSOR") as Role;
+    }
+    return token;
   },
+    async session({ session, token }) {
+    if (token) {
+      session.user.id = token.id;
+      session.user.role = token.role;
+    }
+    return session;
+  },
+    async signIn({ user, account }) {
+    if (account?.provider === "google") {
+      try {
+        const existingUser = await prisma.user.findUnique({
+          where: { email: user.email! },
+          select: { role: true },
+        });
+        if (!existingUser) return true;
+        if (existingUser.role !== "PROFESSOR") return false;
+      } catch (err) {
+        console.error("[signIn] error:", err);
+        return false;
+      }
+    }
+    return true;
+  },
+},
 });
