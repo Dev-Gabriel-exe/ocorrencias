@@ -1,0 +1,207 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  PROFESSOR
+  SECRETARIA_GERAL
+  SECRETARIA_FUND1
+  SECRETARIA_FUND2
+}
+
+enum Nivel {
+  FUND_I
+  FUND_II
+  MEDIO
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  phone         String?
+  bio           String?
+  role          Role      @default(PROFESSOR)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts              Account[]
+  sessions              Session[]
+  disciplinas           ProfessorDisciplina[]
+  ocorrencias           Ocorrencia[]
+  lembretes             Lembrete[]
+  disciplinasTurmas     ProfessorDisciplinaTurma[]
+  nivelEnsino String? // "FUND_I" | "FUND_II_MEDIO"
+}
+
+model Disciplina {
+  id        String   @id @default(cuid())
+  nome      String   @unique
+  ativa     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  professores     ProfessorDisciplina[]
+  turmas          DisciplinaTurma[]
+  motivos         Motivo[]
+  ocorrencias     Ocorrencia[]
+  professorTurmas ProfessorDisciplinaTurma[]
+}
+
+model ProfessorDisciplina {
+  professorId  String
+  disciplinaId String
+  professor    User       @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  @@id([professorId, disciplinaId])
+}
+
+model Turma {
+  id        String   @id @default(cuid())
+  nome      String
+  serie     String
+  turno     String
+  nivel     Nivel
+  anoLetivo Int      @default(2026)
+  ativa     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  alunos               Aluno[]
+  disciplinas          DisciplinaTurma[]
+  ocorrencias          Ocorrencia[]
+  professorDisciplinas ProfessorDisciplinaTurma[]
+}
+
+model DisciplinaTurma {
+  disciplinaId String
+  turmaId      String
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  turma        Turma      @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+  @@id([disciplinaId, turmaId])
+}
+
+model ProfessorDisciplinaTurma {
+  id           String     @id @default(cuid())
+  professorId  String
+  disciplinaId String
+  turmaId      String
+  professor    User       @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  turma        Turma      @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+  @@unique([professorId, disciplinaId, turmaId])
+}
+
+model Aluno {
+  id        String    @id @default(cuid())
+  nome      String
+  matricula String    @unique
+  dataNasc  DateTime?
+  email     String?
+  telefone  String?
+  foto      String?
+  ativo     Boolean   @default(true)
+  turmaId   String
+  turma     Turma     @relation(fields: [turmaId], references: [id])
+  estrelas  Int       @default(5)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  ocorrencias Ocorrencia[]
+}
+
+model Motivo {
+  id           String      @id @default(cuid())
+  titulo       String
+  descricao    String?
+  disciplinaId String?
+  disciplina   Disciplina? @relation(fields: [disciplinaId], references: [id])
+  nivel        Nivel?
+  positivo     Boolean     @default(false)
+  ativo        Boolean     @default(true)
+
+  ocorrencias Ocorrencia[]
+}
+
+model Ocorrencia {
+  id                  String      @id @default(cuid())
+  data                DateTime    @default(now())
+  descricao           String      @db.Text
+  deltaEstrelas       Int         @default(0)
+  vistaPelaSecretaria Boolean     @default(false)
+
+  alunoId      String
+  aluno        Aluno       @relation(fields: [alunoId], references: [id])
+  turmaId      String
+  turma        Turma       @relation(fields: [turmaId], references: [id])
+  professorId  String
+  professor    User        @relation(fields: [professorId], references: [id])
+  motivoId     String?
+  motivo       Motivo?     @relation(fields: [motivoId], references: [id])
+  disciplinaId String?
+  disciplina   Disciplina? @relation(fields: [disciplinaId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Lembrete {
+  id          String   @id @default(cuid())
+  titulo      String
+  descricao   String?  @db.Text
+  dataEvento  DateTime
+  concluido   Boolean  @default(false)
+  professorId String
+  professor   User     @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ConfiguracaoEscola {
+  id           String   @id @default(cuid())
+  nomeEscola   String   @default("Escola")
+  logoUrl      String?
+  endereco     String?
+  telefone     String?
+  emailContato String?
+  updatedAt    DateTime @updatedAt
+}
