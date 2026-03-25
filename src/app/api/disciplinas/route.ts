@@ -1,5 +1,4 @@
 // src/app/api/disciplinas/route.ts
-// src/app/api/disciplinas/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -30,12 +29,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(vinculos.map((v) => v.disciplina));
   }
 
-  // Filtro de visibilidade por nível com tipo correto
+  // Monta filtro de visibilidade com tipo correto (Role enum)
   const whereVisibilidade =
-    role === "SECRETARIA_FUND1"
-      ? { OR: [{ criadaPor: null }, { criadaPor: "SECRETARIA_FUND1" as Role }] }
-      : role === "SECRETARIA_FUND2"
-      ? { OR: [{ criadaPor: null }, { criadaPor: "SECRETARIA_FUND2" as Role }] }
+    role === "SECRETARIA_FUND1" || role === "SECRETARIA_FUND2"
+      ? { OR: [{ criadaPor: null }, { criadaPor: role }] as const }
       : {};
 
   const disciplinas = await prisma.disciplina.findMany({
@@ -56,6 +53,7 @@ export async function POST(req: NextRequest) {
 
   const role = session.user.role as Role;
 
+  // Secretaria Geral cria sem dono (null = todos veem)
   const criadaPor: Role | null = role === "SECRETARIA_GERAL" ? null : role;
 
   const disciplina = await prisma.disciplina.upsert({
