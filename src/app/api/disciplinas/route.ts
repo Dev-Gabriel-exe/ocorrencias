@@ -10,6 +10,19 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const turmaId = searchParams.get("turmaId");
   const professorId = searchParams.get("professorId");
+  const role = session.user.role;
+
+  // Filtro de visibilidade por nível
+  function filtroVisibilidade() {
+    if (role === "SECRETARIA_FUND1") {
+      return { OR: [{ criadaPor: null }, { criadaPor: "SECRETARIA_FUND1" }] };
+    }
+    if (role === "SECRETARIA_FUND2") {
+      return { OR: [{ criadaPor: null }, { criadaPor: "SECRETARIA_FUND2" }] };
+    }
+    // SECRETARIA_GERAL e PROFESSOR veem tudo
+    return {};
+  }
 
   if (turmaId) {
     const vinculos = await prisma.disciplinaTurma.findMany({
@@ -28,7 +41,7 @@ export async function GET(req: NextRequest) {
   }
 
   const disciplinas = await prisma.disciplina.findMany({
-    where: { ativa: true },
+    where: { ativa: true, ...filtroVisibilidade() },
     include: { _count: { select: { professores: true, turmas: true } } },
     orderBy: { nome: "asc" },
   });
@@ -43,10 +56,15 @@ export async function POST(req: NextRequest) {
   const { nome } = await req.json();
   if (!nome?.trim()) return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
 
+  const role = session.user.role;
+
+  // Secretaria Geral cria sem dono (null = todos veem)
+  const criadaPor = role === "SECRETARIA_GERAL" ? null : role;
+
   const disciplina = await prisma.disciplina.upsert({
     where: { nome: nome.trim() },
     update: { ativa: true },
-    create: { nome: nome.trim() },
+    create: { nome: nome.trim(), criadaPor },
   });
 
   return NextResponse.json(disciplina, { status: 201 });

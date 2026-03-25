@@ -81,6 +81,7 @@ model Disciplina {
   nome      String   @unique
   ativa     Boolean  @default(true)
   createdAt DateTime @default(now())
+  criadaPor Role?    // null = Secretaria Geral (visível para todos)
 
   professores     ProfessorDisciplina[]
   turmas          DisciplinaTurma[]
@@ -88,6 +89,7 @@ model Disciplina {
   motivosExcluidos Motivo[] @relation("MotivosDisciplinasExcluidas")
   ocorrencias     Ocorrencia[]
   professorTurmas ProfessorDisciplinaTurma[]
+  
 }
 
 model ProfessorDisciplina {
