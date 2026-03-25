@@ -78,11 +78,11 @@ model User {
 
 model Disciplina {
   id        String   @id @default(cuid())
-  nome      String   @unique
+  nome      String   
   ativa     Boolean  @default(true)
   createdAt DateTime @default(now())
   criadaPor Role?    // null = Secretaria Geral (visível para todos)
-
+  @@unique([nome, criadaPor])
   professores     ProfessorDisciplina[]
   turmas          DisciplinaTurma[]
   motivos         Motivo[]
