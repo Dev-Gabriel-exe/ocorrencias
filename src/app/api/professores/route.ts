@@ -9,7 +9,19 @@ export async function GET() {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
+  // Filtra professores pelo nível de ensino do role da secretaria
+  const nivelFilter =
+    session.user.role === "SECRETARIA_FUND1"
+      ? "FUND_I"
+      : session.user.role === "SECRETARIA_FUND2"
+      ? "FUND_II_MEDIO"
+      : null; // SECRETARIA_GERAL vê todos
+
   const professores = await prisma.user.findMany({
+    where: {
+      role: "PROFESSOR",
+      ...(nivelFilter ? { nivelEnsino: nivelFilter } : {}),
+    },
     select: {
       id: true,
       name: true,
