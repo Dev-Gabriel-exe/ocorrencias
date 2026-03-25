@@ -1,7 +1,9 @@
 // src/app/api/disciplinas/route.ts
+// src/app/api/disciplinas/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import type { Role } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -10,19 +12,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const turmaId = searchParams.get("turmaId");
   const professorId = searchParams.get("professorId");
-  const role = session.user.role;
-
-  // Filtro de visibilidade por nível
-  function filtroVisibilidade() {
-    if (role === "SECRETARIA_FUND1") {
-      return { OR: [{ criadaPor: null }, { criadaPor: "SECRETARIA_FUND1" }] };
-    }
-    if (role === "SECRETARIA_FUND2") {
-      return { OR: [{ criadaPor: null }, { criadaPor: "SECRETARIA_FUND2" }] };
-    }
-    // SECRETARIA_GERAL e PROFESSOR veem tudo
-    return {};
-  }
+  const role = session.user.role as Role;
 
   if (turmaId) {
     const vinculos = await prisma.disciplinaTurma.findMany({
@@ -40,8 +30,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(vinculos.map((v) => v.disciplina));
   }
 
+  // Filtro de visibilidade por nível com tipo correto
+  const whereVisibilidade =
+    role === "SECRETARIA_FUND1"
+      ? { OR: [{ criadaPor: null }, { criadaPor: "SECRETARIA_FUND1" as Role }] }
+      : role === "SECRETARIA_FUND2"
+      ? { OR: [{ criadaPor: null }, { criadaPor: "SECRETARIA_FUND2" as Role }] }
+      : {};
+
   const disciplinas = await prisma.disciplina.findMany({
-    where: { ativa: true, ...filtroVisibilidade() },
+    where: { ativa: true, ...whereVisibilidade },
     include: { _count: { select: { professores: true, turmas: true } } },
     orderBy: { nome: "asc" },
   });
@@ -56,10 +54,9 @@ export async function POST(req: NextRequest) {
   const { nome } = await req.json();
   if (!nome?.trim()) return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
 
-  const role = session.user.role;
+  const role = session.user.role as Role;
 
-  // Secretaria Geral cria sem dono (null = todos veem)
-  const criadaPor = role === "SECRETARIA_GERAL" ? null : role;
+  const criadaPor: Role | null = role === "SECRETARIA_GERAL" ? null : role;
 
   const disciplina = await prisma.disciplina.upsert({
     where: { nome: nome.trim() },
