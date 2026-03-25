@@ -2,11 +2,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Role } from "@prisma/client";
+import { Role, Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!session) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
 
   const { searchParams } = new URL(req.url);
   const turmaId = searchParams.get("turmaId");
@@ -29,15 +31,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(vinculos.map((v) => v.disciplina));
   }
 
-  // Monta filtro de visibilidade com tipo correto (Role enum)
-  const whereVisibilidade =
-    role === "SECRETARIA_FUND1" || role === "SECRETARIA_FUND2"
-      ? { OR: [{ criadaPor: null }, { criadaPor: role }] as const }
-      : {};
+  const where: Prisma.DisciplinaWhereInput = {
+    ativa: true,
+  };
+
+  if (role === Role.SECRETARIA_FUND1 || role === Role.SECRETARIA_FUND2) {
+    where.OR = [
+      { criadaPor: null },
+      { criadaPor: role },
+    ];
+  }
 
   const disciplinas = await prisma.disciplina.findMany({
-    where: { ativa: true, ...whereVisibilidade },
-    include: { _count: { select: { professores: true, turmas: true } } },
+    where,
+    include: {
+      _count: {
+        select: { professores: true, turmas: true },
+      },
+    },
     orderBy: { nome: "asc" },
   });
 
@@ -46,20 +57,27 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (!session) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
 
   const { nome } = await req.json();
-  if (!nome?.trim()) return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
+  if (!nome?.trim()) {
+    return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
+  }
 
   const role = session.user.role as Role;
 
-  // Secretaria Geral cria sem dono (null = todos veem)
-  const criadaPor: Role | null = role === "SECRETARIA_GERAL" ? null : role;
+  const criadaPor: Role | null =
+    role === Role.SECRETARIA_GERAL ? null : role;
 
   const disciplina = await prisma.disciplina.upsert({
     where: { nome: nome.trim() },
     update: { ativa: true },
-    create: { nome: nome.trim(), criadaPor },
+    create: {
+      nome: nome.trim(),
+      criadaPor,
+    },
   });
 
   return NextResponse.json(disciplina, { status: 201 });
