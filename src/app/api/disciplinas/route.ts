@@ -4,16 +4,28 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role, Prisma } from "@prisma/client";
 
+function parseRole(rawRole: unknown): Role | null {
+  if (typeof rawRole !== "string") return null;
+  return Object.values(Role).includes(rawRole as Role)
+    ? (rawRole as Role)
+    : null;
+}
+
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
+  const role = parseRole(session.user.role);
+  if (!role) {
+    console.error("ROLE INVALID (GET):", session.user.role);
+    return NextResponse.json({ error: "Role inválido" }, { status: 500 });
+  }
+
   const { searchParams } = new URL(req.url);
   const turmaId = searchParams.get("turmaId");
   const professorId = searchParams.get("professorId");
-  const role = session.user.role as Role;
 
   if (turmaId) {
     const vinculos = await prisma.disciplinaTurma.findMany({
@@ -66,10 +78,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
   }
 
-  const role = session.user.role as Role;
+  const role = parseRole(session.user.role);
 
   if (!role) {
-    console.error("ROLE UNDEFINED:", session.user);
+    console.error("ROLE INVALID (POST):", session.user.role);
     return NextResponse.json({ error: "Role inválido" }, { status: 500 });
   }
 
