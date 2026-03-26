@@ -1,9 +1,9 @@
 // src/components/turma/lista-alunos-interativa.tsx
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { UserCircle, Users } from "lucide-react";
+import { UserCircle, Search, Plus, Minus } from "lucide-react";
 import { EstrelasControl } from "@/components/estrelas/estrelas-input";
 import { ModalOcorrencia } from "@/components/ocorrencias/modal-ocorrencia";
 
@@ -34,10 +34,15 @@ interface Props {
   professorId: string;
 }
 
-export function ListaAlunosInterativa({ alunos: alunosIniciais, turmaId, motivos, disciplinasDoProfessor }: Props) {
+export function ListaAlunosInterativa({
+  alunos: alunosIniciais,
+  turmaId,
+  motivos,
+  disciplinasDoProfessor,
+}: Props) {
   const router = useRouter();
-  // CORREÇÃO: estado local dos alunos para atualizar estrelas sem recarregar página
   const [alunos, setAlunos] = useState(alunosIniciais);
+  const [search, setSearch] = useState("");
 
   function atualizarEstrelas(alunoId: string, novasEstrelas: number) {
     setAlunos((prev) =>
@@ -45,67 +50,120 @@ export function ListaAlunosInterativa({ alunos: alunosIniciais, turmaId, motivos
     );
   }
 
+  function alterarRapido(aluno: Aluno, delta: number) {
+    const novas = Math.min(10, Math.max(0, aluno.estrelas + delta));
+    atualizarEstrelas(aluno.id, novas);
+  }
+
+  const alunosFiltrados = useMemo(() => {
+    const termo = search.toLowerCase();
+    return alunos.filter(
+      (a) =>
+        a.nome.toLowerCase().includes(termo) ||
+        a.matricula.toLowerCase().includes(termo)
+    );
+  }, [search, alunos]);
+
   if (alunos.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
         <UserCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-gray-500">Nenhum aluno cadastrado nesta turma.</p>
+        <p className="text-gray-500">Nenhum aluno cadastrado.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-      <div className="px-6 py-4 border-b border-gray-50 bg-gray-50 grid grid-cols-12 text-xs font-medium text-gray-400 uppercase tracking-wide">
-        <span className="col-span-1">#</span>
-        <span className="col-span-4">Aluno</span>
-        <span className="col-span-3">Matrícula</span>
-        <span className="col-span-4">Estrelas</span>
+    <div className="space-y-4">
+      {/* Busca */}
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur border border-gray-100 rounded-2xl p-3 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Search className="w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Buscar aluno ou matrícula..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-transparent outline-none text-sm"
+          />
+        </div>
       </div>
 
-      <div className="divide-y divide-gray-50">
-        {alunos.map((aluno, idx) => (
-          <div key={aluno.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
-            <div className="grid grid-cols-12 items-center gap-4">
-              <span className="col-span-1 text-sm text-gray-300 font-mono">
-                {String(idx + 1).padStart(2, "0")}
-              </span>
-              <div className="col-span-4">
-                <Link
-                  href={`/professor/aluno/${aluno.id}`}
-                  className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
-                >
-                  {aluno.nome}
-                </Link>
-              </div>
-              <div className="col-span-3">
-                <span className="text-xs text-gray-400 font-mono">{aluno.matricula}</span>
-              </div>
-              <div className="col-span-4">
-                <EstrelasControl
-                  alunoId={aluno.id}
-                  value={aluno.estrelas}
-                  onUpdate={(novas) => atualizarEstrelas(aluno.id, novas)}
-                />
-              </div>
-            </div>
-            <div className="mt-2 flex justify-end">
+      {/* Lista */}
+      {alunosFiltrados.length === 0 ? (
+        <div className="text-center text-gray-400 py-10">
+          Nenhum aluno encontrado.
+        </div>
+      ) : (
+        alunosFiltrados.map((aluno) => (
+          <div
+            key={aluno.id}
+            className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition"
+          >
+            {/* Top */}
+            <div className="flex items-center justify-between gap-3">
+              <Link
+                href={`/professor/aluno/${aluno.id}`}
+                className="flex items-center gap-3 flex-1 min-w-0"
+              >
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <span className="text-blue-600 font-bold">
+                    {aluno.nome.charAt(0)}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {aluno.nome}
+                  </p>
+                  <p className="text-xs text-gray-400 font-mono">
+                    {aluno.matricula}
+                  </p>
+                </div>
+              </Link>
+
               <ModalOcorrencia
                 aluno={aluno}
                 turmaId={turmaId}
                 motivos={motivos}
                 disciplinasDoProfessor={disciplinasDoProfessor}
                 onSucesso={(deltaEstrelas) => {
-                  // CORREÇÃO: atualiza estrelas localmente após registrar ocorrência
-                  const novas = Math.min(10, Math.max(0, aluno.estrelas + deltaEstrelas));
+                  const novas = Math.min(
+                    10,
+                    Math.max(0, aluno.estrelas + deltaEstrelas)
+                  );
                   atualizarEstrelas(aluno.id, novas);
                   router.refresh();
                 }}
               />
             </div>
+
+            {/* Estrelas + ações rápidas */}
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <EstrelasControl
+                alunoId={aluno.id}
+                value={aluno.estrelas}
+                onUpdate={(novas) => atualizarEstrelas(aluno.id, novas)}
+              />
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => alterarRapido(aluno, -1)}
+                  className="p-2 rounded-xl bg-red-50 hover:bg-red-100 transition"
+                >
+                  <Minus className="w-4 h-4 text-red-500" />
+                </button>
+                <button
+                  onClick={() => alterarRapido(aluno, +1)}
+                  className="p-2 rounded-xl bg-green-50 hover:bg-green-100 transition"
+                >
+                  <Plus className="w-4 h-4 text-green-600" />
+                </button>
+              </div>
+            </div>
           </div>
-        ))}
-      </div>
+        ))
+      )}
     </div>
   );
 }
