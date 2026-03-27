@@ -198,7 +198,7 @@ function OcorrenciasMassaContent() {
               {/* Disciplina */}
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
                 <h2 className="font-semibold text-gray-900 mb-3">
-                  Disciplina <span className="font-normal text-gray-400 text-sm">(opcional)</span>
+                  Disciplina <span className="font-normal text-gray-400 text-sm"></span>
                 </h2>
                 <select
                   value={disciplinaId}

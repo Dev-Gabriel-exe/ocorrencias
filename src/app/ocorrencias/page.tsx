@@ -133,7 +133,7 @@ export default function OcorrenciasSecretariaPage() {
               <div className="flex flex-wrap gap-3 mb-4 items-center">
                 <select value={filtroDisciplina} onChange={(e) => setFiltroDisciplina(e.target.value)}
                   className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
-                  <option value="">Todas as disciplinas</option>
+                  
                   {disciplinas.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
                 <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value as "todos" | "positivo" | "negativo")}

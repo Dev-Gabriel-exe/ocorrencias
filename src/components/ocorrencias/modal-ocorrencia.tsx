@@ -138,7 +138,7 @@ export function ModalOcorrencia({ aluno, turmaId, motivos, disciplinasDoProfesso
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Disciplina</label>
                     <select value={disciplinaId} onChange={(e) => handleDisciplina(e.target.value)}
                       className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                      <option value="todos">Todas as disciplinas</option>
+                      
                       {disciplinasDoProfessor.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
                     </select>
                   </div>
