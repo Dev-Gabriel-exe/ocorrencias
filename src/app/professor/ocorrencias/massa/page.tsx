@@ -205,7 +205,7 @@ function OcorrenciasMassaContent() {
                   onChange={(e) => setDisciplinaId(e.target.value)}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
-                  <option value="">Geral</option>
+                  
                   {disciplinas.map((d) => (
                     <option key={d.id} value={d.id}>{d.nome}</option>
                   ))}
