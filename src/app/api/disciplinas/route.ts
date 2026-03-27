@@ -13,11 +13,13 @@ function parseRole(rawRole: unknown): Role | null {
 
 export async function GET(req: NextRequest) {
   const session = await auth();
+
   if (!session) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
   const role = parseRole(session.user.role);
+
   if (!role) {
     console.error("ROLE INVALID (GET):", session.user.role);
     return NextResponse.json({ error: "Role inválido" }, { status: 500 });
@@ -25,24 +27,48 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const turmaId = searchParams.get("turmaId");
-  const professorId = searchParams.get("professorId");
+  const professorIdParam = searchParams.get("professorId");
 
+  // =========================
+  // 🔥 TURMA + PROFESSOR LOGADO
+  // =========================
   if (turmaId) {
-    const vinculos = await prisma.disciplinaTurma.findMany({
-      where: { turmaId },
-      include: { disciplina: true },
+    const vinculos = await prisma.professorDisciplinaTurma.findMany({
+      where: {
+        turmaId,
+        professorId: session.user.id, // 🔥 chave da correção
+      },
+      include: {
+        disciplina: true,
+      },
     });
-    return NextResponse.json(vinculos.map((v) => v.disciplina));
+
+    const disciplinas = vinculos
+      .map((v) => v.disciplina)
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+
+    return NextResponse.json(disciplinas);
   }
 
-  if (professorId) {
+  // =========================
+  // PROFESSOR (EXTERNO / ADMIN)
+  // =========================
+  if (professorIdParam) {
     const vinculos = await prisma.professorDisciplina.findMany({
-      where: { professorId },
+      where: { professorId: professorIdParam },
       include: { disciplina: true },
     });
-    return NextResponse.json(vinculos.map((v) => v.disciplina));
+
+    const disciplinas = vinculos
+      .map((v) => v.disciplina)
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+
+    return NextResponse.json(disciplinas);
   }
 
+  // =========================
+  // LISTA GERAL (SECRETARIA)
+  // =========================
   const where: Prisma.DisciplinaWhereInput = {
     ativa: true,
   };
@@ -69,11 +95,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
+
   if (!session) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
   const { nome } = await req.json();
+
   if (!nome?.trim()) {
     return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
   }
@@ -87,9 +115,6 @@ export async function POST(req: NextRequest) {
 
   const criadaPor: Role | null =
     role === Role.SECRETARIA_GERAL ? null : role;
-
-  console.log("ROLE:", role);
-  console.log("CRIADA POR:", criadaPor);
 
   const disciplina = await prisma.disciplina.upsert({
     where: { nome: nome.trim() },
