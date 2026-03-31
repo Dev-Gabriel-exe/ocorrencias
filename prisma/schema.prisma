@@ -82,7 +82,7 @@ model Disciplina {
   ativa     Boolean  @default(true)
   createdAt DateTime @default(now())
   criadaPor Role?    // null = Secretaria Geral (visível para todos)
-  @@unique([nome, criadaPor])
+  @@unique([nome, criadaPor], name: "nome_criadaPor")
   professores     ProfessorDisciplina[]
   turmas          DisciplinaTurma[]
   motivos         Motivo[]
