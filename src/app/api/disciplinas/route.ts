@@ -20,38 +20,52 @@ export async function GET(req: NextRequest) {
   const turmaId = searchParams.get("turmaId");
   const professorIdParam = searchParams.get("professorId");
 
+  // 🔹 Disciplinas do professor na turma
   if (turmaId) {
     const vinculos = await prisma.professorDisciplinaTurma.findMany({
       where: { turmaId, professorId: session.user.id },
       include: { disciplina: true },
     });
+
     return NextResponse.json(
       vinculos.map((v) => v.disciplina).sort((a, b) => a.nome.localeCompare(b.nome))
     );
   }
 
+  // 🔹 Disciplinas de um professor específico
   if (professorIdParam) {
     const vinculos = await prisma.professorDisciplina.findMany({
       where: { professorId: professorIdParam },
       include: { disciplina: true },
     });
+
     return NextResponse.json(
       vinculos.map((v) => v.disciplina).sort((a, b) => a.nome.localeCompare(b.nome))
     );
   }
 
-  // Lista geral — filtra por nível
+  // 🔹 Lista geral
   const where: Prisma.DisciplinaWhereInput = { ativa: true };
 
   if (role === Role.SECRETARIA_FUND1) {
-    where.OR = [{ criadaPor: null }, { criadaPor: Role.SECRETARIA_FUND1 }];
+    where.OR = [
+      { criadaPor: Role.SECRETARIA_GERAL },
+      { criadaPor: Role.SECRETARIA_FUND1 },
+    ];
   } else if (role === Role.SECRETARIA_FUND2) {
-    where.OR = [{ criadaPor: null }, { criadaPor: Role.SECRETARIA_FUND2 }];
+    where.OR = [
+      { criadaPor: Role.SECRETARIA_GERAL },
+      { criadaPor: Role.SECRETARIA_FUND2 },
+    ];
   }
 
   const disciplinas = await prisma.disciplina.findMany({
     where,
-    include: { _count: { select: { professores: true, turmas: true } } },
+    include: {
+      _count: {
+        select: { professores: true, turmas: true },
+      },
+    },
     orderBy: { nome: "asc" },
   });
 
@@ -63,39 +77,34 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   const { nome } = await req.json();
-  if (!nome?.trim()) return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
+  if (!nome?.trim()) {
+    return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
+  }
 
   const role = parseRole(session.user.role);
   if (!role) return NextResponse.json({ error: "Role inválido" }, { status: 500 });
 
-  const criadaPor: Role | null =
-    role === Role.SECRETARIA_FUND1 ? Role.SECRETARIA_FUND1 :
-    role === Role.SECRETARIA_FUND2 ? Role.SECRETARIA_FUND2 :
-    null;
+  // 🔥 Agora SEM null
+  const criadaPor: Role =
+    role === Role.SECRETARIA_FUND1
+      ? Role.SECRETARIA_FUND1
+      : role === Role.SECRETARIA_FUND2
+      ? Role.SECRETARIA_FUND2
+      : Role.SECRETARIA_GERAL;
 
-  // CORREÇÃO: upsert com chave composta [nome, criadaPor]
-  try {
-    const disciplina = await prisma.disciplina.upsert({
-      where: { nome_criadaPor: { nome: nome.trim(), criadaPor: criadaPor as Role } },
-      update: { ativa: true },
-      create: { nome: nome.trim(), criadaPor },
-    });
-    return NextResponse.json(disciplina, { status: 201 });
-  } catch {
-    // Fallback: cria diretamente se upsert falhar (criadaPor null não funciona em unique composta)
-    const existente = await prisma.disciplina.findFirst({
-      where: { nome: nome.trim(), criadaPor },
-    });
-    if (existente) {
-      const atualizada = await prisma.disciplina.update({
-        where: { id: existente.id },
-        data: { ativa: true },
-      });
-      return NextResponse.json(atualizada, { status: 200 });
-    }
-    const disciplina = await prisma.disciplina.create({
-      data: { nome: nome.trim(), criadaPor },
-    });
-    return NextResponse.json(disciplina, { status: 201 });
-  }
+  const disciplina = await prisma.disciplina.upsert({
+    where: {
+      nome_criadaPor: {
+        nome: nome.trim(),
+        criadaPor,
+      },
+    },
+    update: { ativa: true },
+    create: {
+      nome: nome.trim(),
+      criadaPor,
+    },
+  });
+
+  return NextResponse.json(disciplina, { status: 201 });
 }
