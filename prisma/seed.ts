@@ -42,21 +42,26 @@ async function main() {
   ];
 
   const discMap: Record<string, string> = {};
-  for (const nome of disciplinasBase) {
-    const d = await prisma.disciplina.upsert({
-  where: {
-    nome_criadaPor: {
+
+for (const nome of disciplinasBase) {
+  const d = await prisma.disciplina.upsert({
+    where: {
+      nome_criadaPor: {
+        nome,
+        criadaPor: Role.SECRETARIA_GERAL,
+      },
+    },
+    update: {},
+    create: {
       nome,
       criadaPor: Role.SECRETARIA_GERAL,
     },
-  },
-  update: {},
-  create: {
-    nome,
-    criadaPor: Role.SECRETARIA_GERAL,
-  },
-});
+  });
 
+  discMap[nome] = d.id;
+}
+
+console.log(`  ✅ ${disciplinasBase.length} disciplinas`);
   const turmasData = [
     { nome: "1º Ano A", serie: "1º Ano", turno: "Manhã", nivel: Nivel.FUND_I },
     { nome: "3º Ano B", serie: "3º Ano", turno: "Tarde", nivel: Nivel.FUND_I },
