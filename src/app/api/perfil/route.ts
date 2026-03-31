@@ -66,7 +66,7 @@ export async function PATCH(req: NextRequest) {
       .filter(Boolean);
 
     // define criadaPor baseado no nível
-    let criadaPor: Role | null = null;
+    let criadaPor: Role = Role.SECRETARIA_GERAL;
 
     if (nivelEnsino === "FUND_I") {
       criadaPor = Role.SECRETARIA_FUND1;
@@ -80,7 +80,10 @@ export async function PATCH(req: NextRequest) {
 
     for (const nome of nomes) {
       let disciplina = await prisma.disciplina.findUnique({
-        where: { nome },
+        where: { nome_criadaPor: {
+            nome,
+            criadaPor,
+          } },
       });
 
       if (!disciplina) {
