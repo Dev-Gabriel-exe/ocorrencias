@@ -39,8 +39,6 @@ export default function RelatoriosSecretariaPage() {
   const [expandidoTurma, setExpandidoTurma] = useState<string | null>(null);
   const [alunosSemOcorrencia, setAlunosSemOcorrencia] = useState<any[]>([]);
   const [turmaFiltroSemOc, setTurmaFiltroSemOc] = useState("");
-  const [alunosSemOcorrencia, setAlunosSemOcorrencia] = useState<any[]>([]);
-  const [turmaFiltroSemOc, setTurmaFiltroSemOc] = useState("");
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -66,15 +64,6 @@ export default function RelatoriosSecretariaPage() {
       if (dadosRel.topAlunos?.length > 0) {
         setAlunosDados(dadosRel.topAlunos);
       }
-
-      // Busca todos os alunos e cruza com os que têm ocorrência
-      const resAlunos = await fetch("/api/alunos");
-      const todosAlunos: any[] = resAlunos.ok ? await resAlunos.json() : [];
-      const idsComOcorrencia = new Set(
-        (dadosRel.topAlunos || []).map((a: any) => a.id)
-      );
-      const semOcorrencia = todosAlunos.filter((a: any) => !idsComOcorrencia.has(a.id));
-      setAlunosSemOcorrencia(semOcorrencia);
 
       // Busca todos os alunos e cruza com os que têm ocorrência
       const resAlunos = await fetch("/api/alunos");
