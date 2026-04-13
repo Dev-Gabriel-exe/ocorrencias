@@ -68,9 +68,7 @@ export default function RelatoriosSecretariaPage() {
       // Busca todos os alunos e cruza com os que têm ocorrência
       const resAlunos = await fetch("/api/alunos");
       const todosAlunos: any[] = resAlunos.ok ? await resAlunos.json() : [];
-      const idsComOcorrencia = new Set(
-        (dadosRel.topAlunos || []).map((a: any) => a.id)
-      );
+      const idsComOcorrencia = new Set(dadosRel.todosAlunosComOcorrencia || []);
       const semOcorrencia = todosAlunos.filter((a: any) => !idsComOcorrencia.has(a.id));
       setAlunosSemOcorrencia(semOcorrencia);
     } catch (e) {

@@ -142,6 +142,7 @@ export async function GET(req: NextRequest) {
     else alunoMap[o.alunoId].negativas++;
   });
   const topAlunos = Object.values(alunoMap).sort((a, b) => b.total - a.total).slice(0, 10);
+  const todosAlunosComOcorrencia = Object.keys(alunoMap); // IDs de TODOS os alunos com ocorrências
 
   // --- Ranking melhores alunos ---
   const rankingMelhores = topAlunosRanking.map((a) => {
@@ -163,6 +164,7 @@ export async function GET(req: NextRequest) {
     porTurma,
     porProfessor,
     topAlunos,
+    todosAlunosComOcorrencia,
     rankingMelhores,
     totalOcorrencias: ocorrencias.length,
     totalPositivas: ocorrencias.filter((o) => o.motivo?.positivo).length,
