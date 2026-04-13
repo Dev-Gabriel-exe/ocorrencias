@@ -37,6 +37,10 @@ export default function RelatoriosSecretariaPage() {
   const [abaAtiva, setAbaAtiva] = useState<"geral" | "turmas" | "alunos" | "semana">("geral");
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date>(new Date());
   const [expandidoTurma, setExpandidoTurma] = useState<string | null>(null);
+  const [alunosSemOcorrencia, setAlunosSemOcorrencia] = useState<any[]>([]);
+  const [turmaFiltroSemOc, setTurmaFiltroSemOc] = useState("");
+  const [alunosSemOcorrencia, setAlunosSemOcorrencia] = useState<any[]>([]);
+  const [turmaFiltroSemOc, setTurmaFiltroSemOc] = useState("");
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -62,6 +66,24 @@ export default function RelatoriosSecretariaPage() {
       if (dadosRel.topAlunos?.length > 0) {
         setAlunosDados(dadosRel.topAlunos);
       }
+
+      // Busca todos os alunos e cruza com os que têm ocorrência
+      const resAlunos = await fetch("/api/alunos");
+      const todosAlunos: any[] = resAlunos.ok ? await resAlunos.json() : [];
+      const idsComOcorrencia = new Set(
+        (dadosRel.topAlunos || []).map((a: any) => a.id)
+      );
+      const semOcorrencia = todosAlunos.filter((a: any) => !idsComOcorrencia.has(a.id));
+      setAlunosSemOcorrencia(semOcorrencia);
+
+      // Busca todos os alunos e cruza com os que têm ocorrência
+      const resAlunos = await fetch("/api/alunos");
+      const todosAlunos: any[] = resAlunos.ok ? await resAlunos.json() : [];
+      const idsComOcorrencia = new Set(
+        (dadosRel.topAlunos || []).map((a: any) => a.id)
+      );
+      const semOcorrencia = todosAlunos.filter((a: any) => !idsComOcorrencia.has(a.id));
+      setAlunosSemOcorrencia(semOcorrencia);
     } catch (e) {
       console.error(e);
     } finally {
@@ -616,6 +638,99 @@ export default function RelatoriosSecretariaPage() {
                 </div>
               </>
             )}
+          </div>
+
+          {/* Alunos sem nenhuma ocorrência */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Star className="w-4 h-4 text-blue-500" />
+                  Alunos sem ocorrências
+                </h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Nenhum registro no período — potenciais candidatos a reconhecimento
+                </p>
+              </div>
+
+              {/* Filtro por turma */}
+              <select
+                value={turmaFiltroSemOc}
+                onChange={(e) => setTurmaFiltroSemOc(e.target.value)}
+                className="border border-gray-200 px-3 py-2 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+              >
+                <option value="">Todas as turmas</option>
+                {turmas.map((t: any) => (
+                  <option key={t.id} value={t.id}>{t.nome}</option>
+                ))}
+              </select>
+            </div>
+
+            {(() => {
+              const filtrados = alunosSemOcorrencia.filter((a) =>
+                turmaFiltroSemOc ? a.turma?.id === turmaFiltroSemOc : true
+              );
+
+              if (filtrados.length === 0) {
+                return (
+                  <div className="text-center py-10">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-2">
+                      <Users className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {turmaFiltroSemOc
+                        ? "Todos os alunos desta turma têm ocorrências registradas"
+                        : "Todos os alunos têm pelo menos uma ocorrência"}
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="text-xs bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-medium">
+                      {filtrados.length} aluno{filtrados.length !== 1 ? "s" : ""} sem ocorrências
+                    </span>
+                    {turmaFiltroSemOc && (
+                      <span className="text-xs text-gray-400">
+                        em {turmas.find((t: any) => t.id === turmaFiltroSemOc)?.nome}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                    {filtrados.map((a: any, i: number) => (
+                      <div
+                        key={a.id}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-blue-50/40 border border-blue-100 hover:bg-blue-50 transition"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-700 flex-shrink-0">
+                          {a.nome?.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{a.nome}</p>
+                          <p className="text-xs text-gray-400 truncate">{a.turma?.nome}</p>
+                        </div>
+                        <div className="flex-shrink-0 text-right">
+                          <div className="flex gap-px justify-end">
+                            {Array.from({ length: 10 }).map((_, si) => (
+                              <div
+                                key={si}
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  si < (a.estrelas || 5) ? "bg-yellow-400" : "bg-gray-200"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <p className="text-xs text-blue-600 font-medium mt-1">sem ocorr.</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
           {/* Alunos que precisam de atenção */}
