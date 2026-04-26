@@ -21,7 +21,6 @@ export async function GET(
     return NextResponse.json({ estrelas: registro?.estrelas ?? 5 });
   }
 
-  // Todas as estrelas por disciplina
   const registros = await prisma.alunoEstrelas.findMany({
     where: { alunoId },
     include: { disciplina: { select: { nome: true } } },
@@ -57,7 +56,6 @@ export async function PATCH(
   const aluno = await prisma.aluno.findUnique({ where: { id: alunoId } });
   if (!aluno) return NextResponse.json({ error: "Aluno não encontrado" }, { status: 404 });
 
-  // Atualiza estrelas da disciplina específica
   const atual = await prisma.alunoEstrelas.upsert({
     where: { alunoId_disciplinaId: { alunoId, disciplinaId } },
     update: {},
@@ -71,14 +69,14 @@ export async function PATCH(
     data: { estrelas: novoValor },
   });
 
-  // Recalcula média global do aluno
+  // Recalcula média global com 1 casa decimal
   const todas = await prisma.alunoEstrelas.findMany({
     where: { alunoId },
     select: { estrelas: true },
   });
 
   const media = todas.length > 0
-    ? Math.round(todas.reduce((sum, e) => sum + e.estrelas, 0) / todas.length)
+    ? Math.round((todas.reduce((sum, e) => sum + e.estrelas, 0) / todas.length) * 10) / 10
     : 5;
 
   const atualizado = await prisma.aluno.update({

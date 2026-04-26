@@ -148,7 +148,7 @@ model Aluno {
   ativo     Boolean   @default(true)
   turmaId   String
   turma     Turma     @relation(fields: [turmaId], references: [id])
-  estrelas  Int       @default(5)
+  estrelas  Float       @default(5)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   estrelasPorDisciplina AlunoEstrelas[]

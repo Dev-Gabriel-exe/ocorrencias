@@ -20,8 +20,9 @@ async function atualizarEstrelas(alunoId: string, disciplinaId: string, delta: n
     select: { estrelas: true },
   });
 
+  // Média com 1 casa decimal
   const media = todas.length > 0
-    ? Math.round(todas.reduce((sum, e) => sum + e.estrelas, 0) / todas.length)
+    ? Math.round((todas.reduce((sum, e) => sum + e.estrelas, 0) / todas.length) * 10) / 10
     : 5;
 
   await prisma.aluno.update({
@@ -56,7 +57,6 @@ export async function DELETE(
     }
   }
 
-  // Reverte estrelas por disciplina
   if (ocorrencia.deltaEstrelas !== 0 && ocorrencia.disciplinaId) {
     await atualizarEstrelas(ocorrencia.alunoId, ocorrencia.disciplinaId, -ocorrencia.deltaEstrelas);
   }

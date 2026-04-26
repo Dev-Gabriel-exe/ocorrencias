@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// Helper: atualiza estrelas por disciplina e recalcula média global
+// Helper: atualiza estrelas por disciplina e recalcula média global com 1 decimal
 async function atualizarEstrelas(alunoId: string, disciplinaId: string, delta: number) {
   const atual = await prisma.alunoEstrelas.upsert({
     where: { alunoId_disciplinaId: { alunoId, disciplinaId } },
@@ -16,14 +16,14 @@ async function atualizarEstrelas(alunoId: string, disciplinaId: string, delta: n
     data: { estrelas: Math.min(10, Math.max(0, atual.estrelas + delta)) },
   });
 
-  // Recalcula média global
+  // Recalcula média global com 1 casa decimal
   const todas = await prisma.alunoEstrelas.findMany({
     where: { alunoId },
     select: { estrelas: true },
   });
 
   const media = todas.length > 0
-    ? Math.round(todas.reduce((sum, e) => sum + e.estrelas, 0) / todas.length)
+    ? Math.round((todas.reduce((sum, e) => sum + e.estrelas, 0) / todas.length) * 10) / 10
     : 5;
 
   await prisma.aluno.update({
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
       motivoId: motivoId || null,
       disciplinaId,
       descricao,
-      deltaEstrelas, // usa o valor do frontend diretamente
+      deltaEstrelas,
       vistaPelaSecretaria: false,
     },
     include: {
@@ -119,7 +119,6 @@ export async function DELETE(req: NextRequest) {
   const ocorrencia = await prisma.ocorrencia.findUnique({ where: { id } });
   if (!ocorrencia) return NextResponse.json({ error: "Não encontrada" }, { status: 404 });
 
-  // Reverte estrelas
   if (ocorrencia.deltaEstrelas !== 0 && ocorrencia.disciplinaId) {
     await atualizarEstrelas(ocorrencia.alunoId, ocorrencia.disciplinaId, -ocorrencia.deltaEstrelas);
   }
