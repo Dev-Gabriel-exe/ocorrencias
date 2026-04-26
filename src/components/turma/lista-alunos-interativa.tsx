@@ -3,8 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { UserCircle, Search, Plus, Minus } from "lucide-react";
-import { EstrelasControl } from "@/components/estrelas/estrelas-input";
+import { UserCircle, Search } from "lucide-react";
 import { ModalOcorrencia } from "@/components/ocorrencias/modal-ocorrencia";
 
 interface Aluno {
@@ -41,19 +40,8 @@ export function ListaAlunosInterativa({
   disciplinasDoProfessor,
 }: Props) {
   const router = useRouter();
-  const [alunos, setAlunos] = useState(alunosIniciais);
+  const [alunos] = useState(alunosIniciais);
   const [search, setSearch] = useState("");
-
-  function atualizarEstrelas(alunoId: string, novasEstrelas: number) {
-    setAlunos((prev) =>
-      prev.map((a) => (a.id === alunoId ? { ...a, estrelas: novasEstrelas } : a))
-    );
-  }
-
-  function alterarRapido(aluno: Aluno, delta: number) {
-    const novas = Math.min(10, Math.max(0, aluno.estrelas + delta));
-    atualizarEstrelas(aluno.id, novas);
-  }
 
   const alunosFiltrados = useMemo(() => {
     const termo = search.toLowerCase();
@@ -100,7 +88,6 @@ export function ListaAlunosInterativa({
             key={aluno.id}
             className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition"
           >
-            {/* Top */}
             <div className="flex items-center justify-between gap-3">
               <Link
                 href={`/professor/aluno/${aluno.id}`}
@@ -111,7 +98,6 @@ export function ListaAlunosInterativa({
                     {aluno.nome.charAt(0)}
                   </span>
                 </div>
-
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-gray-900 truncate">
                     {aluno.nome}
@@ -127,39 +113,22 @@ export function ListaAlunosInterativa({
                 turmaId={turmaId}
                 motivos={motivos}
                 disciplinasDoProfessor={disciplinasDoProfessor}
-                onSucesso={(deltaEstrelas) => {
-                  const novas = Math.min(
-                    10,
-                    Math.max(0, aluno.estrelas + deltaEstrelas)
-                  );
-                  atualizarEstrelas(aluno.id, novas);
-                  router.refresh();
-                }}
+                onSucesso={() => router.refresh()}
               />
             </div>
 
-            {/* Estrelas + ações rápidas */}
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <EstrelasControl
-                alunoId={aluno.id}
-                value={aluno.estrelas}
-                onUpdate={(novas) => atualizarEstrelas(aluno.id, novas)}
-              />
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => alterarRapido(aluno, -1)}
-                  className="p-2 rounded-xl bg-red-50 hover:bg-red-100 transition"
-                >
-                  <Minus className="w-4 h-4 text-red-500" />
-                </button>
-                <button
-                  onClick={() => alterarRapido(aluno, +1)}
-                  className="p-2 rounded-xl bg-green-50 hover:bg-green-100 transition"
-                >
-                  <Plus className="w-4 h-4 text-green-600" />
-                </button>
+            {/* Média global de estrelas — apenas exibição */}
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-xs text-gray-400">Média geral:</span>
+              <div className="flex gap-0.5">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={`text-sm ${i < aluno.estrelas ? "text-yellow-400" : "text-gray-200"}`}
+                  >★</span>
+                ))}
               </div>
+              <span className="text-xs font-medium text-gray-500">{aluno.estrelas}/10</span>
             </div>
           </div>
         ))
