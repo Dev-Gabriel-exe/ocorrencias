@@ -13,7 +13,7 @@ interface Props {
   turmaId: string;
   motivos: Motivo[];
   disciplinasDoProfessor: Disciplina[];
-  onSucesso?: (deltaEstrelas: number) => void;
+  onSucesso?: (deltaEstrelas: number, disciplinaId: string) => void;
 }
 
 export function ModalOcorrencia({ aluno, turmaId, motivos, disciplinasDoProfessor, onSucesso }: Props) {
@@ -105,7 +105,7 @@ export function ModalOcorrencia({ aluno, turmaId, motivos, disciplinasDoProfesso
       });
       if (res.ok) {
         setSucesso(true);
-        onSucesso?.(deltaEstrelas);
+        onSucesso?.(deltaEstrelas, disciplinaId);
         setTimeout(() => { setSucesso(false); handleFechar(); }, 1500);
       } else {
         const data = await res.json();

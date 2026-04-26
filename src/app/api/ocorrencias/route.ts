@@ -73,25 +73,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
-  const { alunoId, turmaId, motivoId, disciplinaId, descricao } = await req.json();
+  const { alunoId, turmaId, motivoId, disciplinaId, descricao, deltaEstrelas = 0 } = await req.json();
 
   if (!alunoId || !turmaId || !descricao) {
     return NextResponse.json({ error: "Campos obrigatórios faltando" }, { status: 400 });
   }
 
-  // Disciplina obrigatória
   if (!disciplinaId) {
     return NextResponse.json({ error: "Disciplina é obrigatória" }, { status: 400 });
-  }
-
-  // Deriva delta do motivo
-  let delta = 0;
-  if (motivoId) {
-    const motivo = await prisma.motivo.findUnique({
-      where: { id: motivoId },
-      select: { positivo: true },
-    });
-    if (motivo) delta = motivo.positivo ? 1 : -1;
   }
 
   const ocorrencia = await prisma.ocorrencia.create({
@@ -102,21 +91,16 @@ export async function POST(req: NextRequest) {
       motivoId: motivoId || null,
       disciplinaId,
       descricao,
-      deltaEstrelas: delta,
+      deltaEstrelas, // usa o valor do frontend diretamente
       vistaPelaSecretaria: false,
     },
     include: {
-      aluno: true,
-      turma: true,
-      professor: true,
-      motivo: true,
-      disciplina: true,
+      aluno: true, turma: true, professor: true, motivo: true, disciplina: true,
     },
   });
 
-  // Atualiza estrelas por disciplina
-  if (delta !== 0) {
-    await atualizarEstrelas(alunoId, disciplinaId, delta);
+  if (deltaEstrelas !== 0) {
+    await atualizarEstrelas(alunoId, disciplinaId, deltaEstrelas);
   }
 
   return NextResponse.json(ocorrencia, { status: 201 });
