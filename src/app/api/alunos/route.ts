@@ -30,7 +30,12 @@ export async function GET(req: NextRequest) {
     },
     include: {
       turma: { select: { id: true, nome: true, serie: true, nivel: true } },
-      _count: { select: { ocorrencias: true } },
+      _count: {
+        select: {
+          ocorrencias: true,
+          estrelasPorDisciplina: true, // número de disciplinas que compõem a média
+        },
+      },
     },
     orderBy: { nome: "asc" },
   });

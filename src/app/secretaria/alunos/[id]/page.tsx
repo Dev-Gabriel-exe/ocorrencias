@@ -4,18 +4,25 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Star, ClipboardList, Loader2, TrendingUp, TrendingDown, User,
+  ArrowLeft, Star, ClipboardList, Loader2, TrendingUp, TrendingDown, User, BookOpen,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+interface EstrelasDisciplina {
+  disciplinaId: string;
+  disciplinaNome: string;
+  estrelas: number;
+}
 
 interface Ocorrencia {
   id: string;
   data: string;
   descricao: string;
   deltaEstrelas: number;
+  disciplina?: { id: string; nome: string } | null;
   motivo?: { titulo: string; positivo: boolean } | null;
-  professor: { name: string | null; discipline: string | null };
+  professor: { name: string | null };
 }
 
 interface Aluno {
@@ -26,6 +33,7 @@ interface Aluno {
   email?: string;
   telefone?: string;
   turma: { id: string; nome: string };
+  estrelasPorDisciplina: EstrelasDisciplina[];
   ocorrencias: Ocorrencia[];
 }
 
@@ -63,6 +71,7 @@ export default function AlunoSecretariaPage() {
 
   const positivas = aluno.ocorrencias.filter((o) => o.deltaEstrelas > 0).length;
   const negativas = aluno.ocorrencias.filter((o) => o.deltaEstrelas < 0).length;
+  const totalDisciplinas = aluno.estrelasPorDisciplina.length;
 
   return (
     <div>
@@ -76,9 +85,9 @@ export default function AlunoSecretariaPage() {
         </Link>
 
         <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center flex-shrink-0">
                 <span className="text-purple-600 font-bold text-xl">{aluno.nome.charAt(0)}</span>
               </div>
               <div>
@@ -91,7 +100,9 @@ export default function AlunoSecretariaPage() {
                 {aluno.telefone && <p className="text-xs text-gray-400">{aluno.telefone}</p>}
               </div>
             </div>
-            <div className="text-right">
+
+            {/* Média geral de estrelas */}
+            <div className="text-right flex-shrink-0">
               <div className="flex items-center gap-0.5 justify-end">
                 {Array.from({ length: 10 }).map((_, i) => (
                   <Star
@@ -100,9 +111,59 @@ export default function AlunoSecretariaPage() {
                   />
                 ))}
               </div>
-              <p className="text-xs text-gray-400 mt-1">{aluno.estrelas}/10 estrelas</p>
+              <p className="text-xs text-gray-400 mt-1">
+                <span className="font-semibold text-gray-700">{aluno.estrelas}/10</span>
+                {" "}
+                {totalDisciplinas > 0 && (
+                  <span className="text-gray-400">· média de {totalDisciplinas} disciplina{totalDisciplinas !== 1 ? "s" : ""}</span>
+                )}
+              </p>
             </div>
           </div>
+
+          {/* Detalhamento por disciplina */}
+          {totalDisciplinas > 0 && (
+            <div className="mt-5 pt-5 border-t border-gray-50">
+              <div className="flex items-center gap-2 mb-3">
+                <BookOpen className="w-4 h-4 text-gray-400" />
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estrelas por disciplina</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {aluno.estrelasPorDisciplina.map((disc) => (
+                  <div key={disc.disciplinaId} className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
+                    <span className="text-xs text-gray-500 w-28 truncate font-medium">{disc.disciplinaNome}</span>
+                    <div className="flex gap-0.5 flex-1">
+                      {Array.from({ length: 10 }).map((_, i) => (
+                        <span
+                          key={i}
+                          className={`text-[10px] ${i < disc.estrelas ? "text-yellow-400" : "text-gray-200"}`}
+                        >
+                          ★
+                        </span>
+                      ))}
+                    </div>
+                    <span className="text-xs font-semibold text-gray-600 w-8 text-right">{disc.estrelas}/10</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Linha de média */}
+              <div className="mt-2 flex items-center gap-2 bg-purple-50 rounded-xl px-3 py-2 border border-purple-100">
+                <span className="text-xs text-purple-700 w-28 font-semibold">Média geral</span>
+                <div className="flex gap-0.5 flex-1">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={`text-[10px] ${i < aluno.estrelas ? "text-purple-400" : "text-purple-100"}`}
+                    >
+                      ★
+                    </span>
+                  ))}
+                </div>
+                <span className="text-xs font-bold text-purple-700 w-8 text-right">{aluno.estrelas}/10</span>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-50">
             <div className="text-center">
@@ -144,7 +205,12 @@ export default function AlunoSecretariaPage() {
               <div key={oc.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      {oc.disciplina && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-50 text-blue-600">
+                          {oc.disciplina.nome}
+                        </span>
+                      )}
                       {oc.motivo && (
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           oc.motivo.positivo ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
@@ -160,8 +226,7 @@ export default function AlunoSecretariaPage() {
                     </div>
                     <p className="text-sm text-gray-700">{oc.descricao}</p>
                     <p className="text-xs text-gray-400 mt-1">
-                      {oc.professor.name}
-                      {oc.professor.discipline}
+                      Prof. {oc.professor.name ?? "—"}
                     </p>
                   </div>
                   <span className="text-xs text-gray-400 whitespace-nowrap">

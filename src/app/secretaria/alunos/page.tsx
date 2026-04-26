@@ -1,7 +1,7 @@
 "use client";
 // src/app/secretaria/alunos/page.tsx
 import { useState, useEffect } from "react";
-import { Plus, Users, Search, Star, Loader2, X } from "lucide-react";
+import { Plus, Users, Search, Star, Loader2, X, BookOpen } from "lucide-react";
 import { ImportarAlunos } from "@/components/alunos/importar-alunos";
 
 export default function AlunosPage() {
@@ -166,19 +166,40 @@ export default function AlunosPage() {
                 <p className="text-gray-400 text-sm">Nenhum aluno encontrado.</p>
               </div>
             ) : (
-              alunosFiltrados.map((aluno: any) => (
-                <div key={aluno.id} className="px-6 py-3 grid grid-cols-12 items-center hover:bg-gray-50 transition-colors">
-                  <a href={`/secretaria/alunos/${aluno.id}`} className="col-span-4 text-sm font-medium text-gray-900 hover:text-purple-600 transition-colors">{aluno.nome}</a>
-                  <span className="col-span-2 text-xs text-gray-400 font-mono">{aluno.matricula}</span>
-                  <a href={`/secretaria/turmas/${aluno.turma?.id}`} className="col-span-3 text-xs text-gray-500 hover:text-purple-500 transition-colors">{aluno.turma?.nome}</a>
-                  <div className="col-span-2 flex items-center gap-1">
-                    <Star className={`w-3.5 h-3.5 ${aluno.estrelas >= 5 ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
-                    <span className="text-sm font-medium text-gray-700">{aluno.estrelas}</span>
-                    <span className="text-xs text-gray-400">/10</span>
+              alunosFiltrados.map((aluno: any) => {
+                // Quantidade de disciplinas que compõem a média
+                const numDisciplinas = aluno._count?.estrelasPorDisciplina ?? aluno.estrelasPorDisciplina?.length ?? 0;
+
+                return (
+                  <div key={aluno.id} className="px-6 py-3 grid grid-cols-12 items-center hover:bg-gray-50 transition-colors">
+                    <a href={`/secretaria/alunos/${aluno.id}`} className="col-span-4 text-sm font-medium text-gray-900 hover:text-purple-600 transition-colors">
+                      {aluno.nome}
+                    </a>
+                    <span className="col-span-2 text-xs text-gray-400 font-mono">{aluno.matricula}</span>
+                    <a href={`/secretaria/turmas/${aluno.turma?.id}`} className="col-span-3 text-xs text-gray-500 hover:text-purple-500 transition-colors">
+                      {aluno.turma?.nome}
+                    </a>
+
+                    {/* Coluna Estrelas: média + indicador de disciplinas */}
+                    <div className="col-span-2 flex items-center gap-1.5">
+                      <Star className={`w-3.5 h-3.5 flex-shrink-0 ${aluno.estrelas >= 5 ? "text-yellow-400 fill-yellow-400" : "text-gray-300 fill-gray-300"}`} />
+                      <span className="text-sm font-medium text-gray-700">{aluno.estrelas}</span>
+                      <span className="text-xs text-gray-400">/10</span>
+                      {numDisciplinas > 0 && (
+                        <span
+                          title={`Média de ${numDisciplinas} disciplina${numDisciplinas !== 1 ? "s" : ""}`}
+                          className="flex items-center gap-0.5 text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full ml-0.5"
+                        >
+                          <BookOpen className="w-2.5 h-2.5" />
+                          {numDisciplinas}
+                        </span>
+                      )}
+                    </div>
+
+                    <span className="col-span-1 text-sm text-gray-400">{aluno._count?.ocorrencias ?? 0}</span>
                   </div>
-                  <span className="col-span-1 text-sm text-gray-400">{aluno._count?.ocorrencias ?? 0}</span>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
