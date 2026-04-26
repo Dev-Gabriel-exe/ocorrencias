@@ -43,7 +43,6 @@ export async function GET(req: NextRequest) {
     orderBy: { data: "asc" },
   });
 
-  // Filtro de alunos para média e ranking (todos, sem take)
   const whereAlunos = {
     ativo: true,
     turma: {
@@ -53,7 +52,6 @@ export async function GET(req: NextRequest) {
     },
   };
 
-  // Média usa aggregate — eficiente e correto (todos os alunos)
   const agregado = await prisma.aluno.aggregate({
     where: whereAlunos,
     _avg: { estrelas: true },
@@ -65,7 +63,6 @@ export async function GET(req: NextRequest) {
     : "0";
   const totalAlunos = agregado._count.id;
 
-  // Ranking top 10 — busca separada só para esse fim
   const topAlunosRanking = await prisma.aluno.findMany({
     where: whereAlunos,
     select: { id: true, nome: true, estrelas: true, turma: { select: { nome: true } } },
@@ -73,7 +70,30 @@ export async function GET(req: NextRequest) {
     take: 10,
   });
 
-  // --- Por dia ---
+  // Média de estrelas por disciplina
+  const estrelasPorDisciplina = await prisma.alunoEstrelas.groupBy({
+    by: ["disciplinaId"],
+    where: {
+      aluno: whereAlunos,
+    },
+    _avg: { estrelas: true },
+    _count: { alunoId: true },
+  });
+
+  const disciplinasIds = estrelasPorDisciplina.map((e) => e.disciplinaId);
+  const disciplinasNomes = await prisma.disciplina.findMany({
+    where: { id: { in: disciplinasIds } },
+    select: { id: true, nome: true },
+  });
+
+  const mediaEstrélasPorDisciplina = estrelasPorDisciplina.map((e) => ({
+    disciplinaId: e.disciplinaId,
+    nome: disciplinasNomes.find((d) => d.id === e.disciplinaId)?.nome ?? "—",
+    media: e._avg.estrelas?.toFixed(1) ?? "5.0",
+    totalAlunos: e._count.alunoId,
+  })).sort((a, b) => Number(b.media) - Number(a.media));
+
+  // Por dia
   const diasIntervalo = eachDayOfInterval({ start: dataInicio, end: dataFim });
   const porDia = diasIntervalo.map((dia) => {
     const key = format(dia, "yyyy-MM-dd");
@@ -86,7 +106,7 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  // --- Por motivo ---
+  // Por motivo
   const motivoMap: Record<string, number> = {};
   ocorrencias.forEach((o) => {
     const titulo = o.motivo?.titulo || "Sem motivo";
@@ -97,7 +117,7 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => b[1] - a[1]).slice(0, 7)
     .map(([name, value], i) => ({ name, value, color: CORES[i % CORES.length] }));
 
-  // --- Por disciplina ---
+  // Por disciplina
   const disciplinaMap: Record<string, { nome: string; total: number; positivas: number; negativas: number }> = {};
   ocorrencias.forEach((o) => {
     const nome = o.disciplina?.nome || "Sem disciplina";
@@ -109,7 +129,7 @@ export async function GET(req: NextRequest) {
   });
   const porDisciplina = Object.values(disciplinaMap).sort((a, b) => b.total - a.total);
 
-  // --- Por turma ---
+  // Por turma
   const turmaMap: Record<string, { nome: string; nivel: string; total: number; positivas: number; negativas: number }> = {};
   ocorrencias.forEach((o) => {
     const id = o.turma.id;
@@ -120,7 +140,7 @@ export async function GET(req: NextRequest) {
   });
   const porTurma = Object.values(turmaMap).sort((a, b) => b.total - a.total);
 
-  // --- Por professor ---
+  // Por professor
   const professorMap: Record<string, { nome: string; total: number; positivas: number; negativas: number }> = {};
   ocorrencias.forEach((o) => {
     const id = o.professor.id;
@@ -131,7 +151,7 @@ export async function GET(req: NextRequest) {
   });
   const porProfessor = Object.values(professorMap).sort((a, b) => b.total - a.total);
 
-  // --- Top alunos com mais ocorrências (no período) ---
+  // Top alunos
   const alunoMap: Record<string, { nome: string; total: number; negativas: number; positivas: number; estrelas: number }> = {};
   ocorrencias.forEach((o) => {
     if (!alunoMap[o.alunoId]) {
@@ -142,9 +162,8 @@ export async function GET(req: NextRequest) {
     else alunoMap[o.alunoId].negativas++;
   });
   const topAlunos = Object.values(alunoMap).sort((a, b) => b.total - a.total).slice(0, 10);
-  const todosAlunosComOcorrencia = Object.keys(alunoMap); // IDs de TODOS os alunos com ocorrências
+  const todosAlunosComOcorrencia = Object.keys(alunoMap);
 
-  // --- Ranking melhores alunos ---
   const rankingMelhores = topAlunosRanking.map((a) => {
     const stats = alunoMap[a.id];
     return {
@@ -166,6 +185,7 @@ export async function GET(req: NextRequest) {
     topAlunos,
     todosAlunosComOcorrencia,
     rankingMelhores,
+    mediaEstrélasPorDisciplina, // novo: média por disciplina para o relatório
     totalOcorrencias: ocorrencias.length,
     totalPositivas: ocorrencias.filter((o) => o.motivo?.positivo).length,
     totalNegativas: ocorrencias.filter((o) => !o.motivo?.positivo).length,

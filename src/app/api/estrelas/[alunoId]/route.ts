@@ -3,6 +3,37 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ alunoId: string }> }
+) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+  const { alunoId } = await params;
+  const { searchParams } = new URL(req.url);
+  const disciplinaId = searchParams.get("disciplinaId");
+
+  if (disciplinaId) {
+    const registro = await prisma.alunoEstrelas.findUnique({
+      where: { alunoId_disciplinaId: { alunoId, disciplinaId } },
+    });
+    return NextResponse.json({ estrelas: registro?.estrelas ?? 5 });
+  }
+
+  // Todas as estrelas por disciplina
+  const registros = await prisma.alunoEstrelas.findMany({
+    where: { alunoId },
+    include: { disciplina: { select: { nome: true } } },
+  });
+
+  return NextResponse.json(registros.map((r) => ({
+    disciplinaId: r.disciplinaId,
+    disciplina: r.disciplina.nome,
+    estrelas: r.estrelas,
+  })));
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ alunoId: string }> }
@@ -13,22 +44,48 @@ export async function PATCH(
   }
 
   const { alunoId } = await params;
-  const { delta } = await req.json();
+  const { delta, disciplinaId } = await req.json();
 
   if (typeof delta !== "number") {
     return NextResponse.json({ error: "Delta inválido" }, { status: 400 });
   }
 
+  if (!disciplinaId) {
+    return NextResponse.json({ error: "disciplinaId obrigatório" }, { status: 400 });
+  }
+
   const aluno = await prisma.aluno.findUnique({ where: { id: alunoId } });
   if (!aluno) return NextResponse.json({ error: "Aluno não encontrado" }, { status: 404 });
 
-  const novoValor = Math.min(10, Math.max(0, aluno.estrelas + delta));
+  // Atualiza estrelas da disciplina específica
+  const atual = await prisma.alunoEstrelas.upsert({
+    where: { alunoId_disciplinaId: { alunoId, disciplinaId } },
+    update: {},
+    create: { alunoId, disciplinaId, estrelas: 5 },
+  });
+
+  const novoValor = Math.min(10, Math.max(0, atual.estrelas + delta));
+
+  await prisma.alunoEstrelas.update({
+    where: { alunoId_disciplinaId: { alunoId, disciplinaId } },
+    data: { estrelas: novoValor },
+  });
+
+  // Recalcula média global do aluno
+  const todas = await prisma.alunoEstrelas.findMany({
+    where: { alunoId },
+    select: { estrelas: true },
+  });
+
+  const media = todas.length > 0
+    ? Math.round(todas.reduce((sum, e) => sum + e.estrelas, 0) / todas.length)
+    : 5;
 
   const atualizado = await prisma.aluno.update({
     where: { id: alunoId },
-    data: { estrelas: novoValor },
+    data: { estrelas: media },
     select: { id: true, nome: true, estrelas: true },
   });
 
-  return NextResponse.json(atualizado);
+  return NextResponse.json({ ...atualizado, estrelasDisciplina: novoValor });
 }

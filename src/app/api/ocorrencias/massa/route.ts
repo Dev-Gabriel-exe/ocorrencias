@@ -10,6 +10,33 @@ interface MotivoItem {
   positivo: boolean;
 }
 
+async function atualizarEstrelas(alunoId: string, disciplinaId: string, delta: number) {
+  const atual = await prisma.alunoEstrelas.upsert({
+    where: { alunoId_disciplinaId: { alunoId, disciplinaId } },
+    update: {},
+    create: { alunoId, disciplinaId, estrelas: 5 },
+  });
+
+  await prisma.alunoEstrelas.update({
+    where: { alunoId_disciplinaId: { alunoId, disciplinaId } },
+    data: { estrelas: Math.min(10, Math.max(0, atual.estrelas + delta)) },
+  });
+
+  const todas = await prisma.alunoEstrelas.findMany({
+    where: { alunoId },
+    select: { estrelas: true },
+  });
+
+  const media = todas.length > 0
+    ? Math.round(todas.reduce((sum, e) => sum + e.estrelas, 0) / todas.length)
+    : 5;
+
+  await prisma.aluno.update({
+    where: { id: alunoId },
+    data: { estrelas: media },
+  });
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session || session.user.role !== "PROFESSOR") {
@@ -18,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   const { turmaId, disciplinaId, alunoIds, motivos } = await req.json() as {
     turmaId: string;
-    disciplinaId?: string;
+    disciplinaId: string;
     alunoIds: string[];
     motivos: MotivoItem[];
   };
@@ -27,19 +54,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
   }
 
-  // Monta descrição concatenando todos os motivos e suas descrições opcionais
+  // Disciplina obrigatória
+  if (!disciplinaId) {
+    return NextResponse.json({ error: "Disciplina é obrigatória" }, { status: 400 });
+  }
+
   const descricao = motivos
     .map((m) => (m.descricao?.trim() ? `${m.titulo}: ${m.descricao.trim()}` : m.titulo))
     .join(" | ");
 
-  // 1 estrela por registro: -1 se qualquer motivo for negativo, +1 se todos positivos
   const todosPositivos = motivos.every((m) => m.positivo);
   const delta = todosPositivos ? 1 : -1;
-
-  // Motivo principal = primeiro da lista (para o campo motivoId)
   const motivoPrincipalId = motivos[0].motivoId;
 
-  // Cria as ocorrências em transação
   await prisma.$transaction(
     alunoIds.map((alunoId) =>
       prisma.ocorrencia.create({
@@ -48,7 +75,7 @@ export async function POST(req: NextRequest) {
           turmaId,
           professorId: session.user.id,
           motivoId: motivoPrincipalId,
-          disciplinaId: disciplinaId || null,
+          disciplinaId,
           descricao,
           deltaEstrelas: delta,
           vistaPelaSecretaria: false,
@@ -57,18 +84,9 @@ export async function POST(req: NextRequest) {
     )
   );
 
-  // Atualiza estrelas de cada aluno (com clamp 0–10)
+  // Atualiza estrelas por disciplina para cada aluno
   for (const alunoId of alunoIds) {
-    const aluno = await prisma.aluno.findUnique({
-      where: { id: alunoId },
-      select: { estrelas: true },
-    });
-    if (aluno) {
-      await prisma.aluno.update({
-        where: { id: alunoId },
-        data: { estrelas: Math.min(10, Math.max(0, aluno.estrelas + delta)) },
-      });
-    }
+    await atualizarEstrelas(alunoId, disciplinaId, delta);
   }
 
   return NextResponse.json({ count: alunoIds.length }, { status: 201 });

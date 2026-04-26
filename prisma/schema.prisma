@@ -89,6 +89,7 @@ model Disciplina {
   motivosExcluidos Motivo[] @relation("MotivosDisciplinasExcluidas")
   ocorrencias     Ocorrencia[]
   professorTurmas ProfessorDisciplinaTurma[]
+  estrelasAlunos AlunoEstrelas[]
   
 }
 
@@ -150,6 +151,7 @@ model Aluno {
   estrelas  Int       @default(5)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  estrelasPorDisciplina AlunoEstrelas[]
 
   ocorrencias Ocorrencia[]
 }
@@ -212,3 +214,12 @@ model ConfiguracaoEscola {
   updatedAt    DateTime @updatedAt
 }
 
+model AlunoEstrelas {
+  id           String     @id @default(cuid())
+  alunoId      String
+  disciplinaId String
+  estrelas     Int        @default(5)
+  aluno        Aluno      @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  @@unique([alunoId, disciplinaId])
+}
