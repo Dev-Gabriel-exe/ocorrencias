@@ -48,6 +48,8 @@ function OcorrenciasMassaContent() {
       setAlunos(al);
       setDisciplinas(disc);
       setMotivos(mot);
+      // FIX: auto-seleciona a primeira disciplina para evitar disciplinaId vazio
+      if (disc.length === 1) setDisciplinaId(disc[0].id);
       setLoadingAlunos(false);
     });
   }, [turmaId, turmas]);
@@ -98,6 +100,10 @@ function OcorrenciasMassaContent() {
 
   async function handleSubmit() {
     if (!turmaId || motivosSelecionados.length === 0 || alunosSelecionados.size === 0) return;
+    if (!disciplinaId) {
+      alert("Selecione uma disciplina antes de continuar.");
+      return;
+    }
     setSalvando(true);
 
     const res = await fetch("/api/ocorrencias/massa", {
@@ -105,7 +111,7 @@ function OcorrenciasMassaContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         turmaId,
-        disciplinaId: disciplinaId || null,
+        disciplinaId,
         alunoIds: Array.from(alunosSelecionados),
         motivos: motivosSelecionados,
       }),
@@ -115,7 +121,8 @@ function OcorrenciasMassaContent() {
     if (res.ok) {
       router.push("/professor/dashboard");
     } else {
-      alert("Erro ao registrar ocorrências.");
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Erro ao registrar ocorrências.");
     }
   }
 
@@ -127,6 +134,9 @@ function OcorrenciasMassaContent() {
   const deltaPreview = motivosSelecionados.length === 0 ? null : todosPositivos ? "+1 ⭐" : "-1 ⭐";
 
   const turmaNome = turmas.find((t) => t.id === turmaId)?.nome;
+
+  // Bloqueia avanço se disciplina não selecionada
+  const podeAvancar = motivosSelecionados.length > 0 && !!disciplinaId;
 
   return (
     <div>
@@ -168,7 +178,7 @@ function OcorrenciasMassaContent() {
       {step === 1 && (
         <div className="max-w-2xl space-y-5">
 
-          {/* Turma — oculta se veio por parâmetro */}
+          {/* Turma */}
           {!turmaIdParam ? (
             <div className="bg-white rounded-2xl border border-gray-100 p-5">
               <h2 className="font-semibold text-gray-900 mb-3">Turma *</h2>
@@ -186,105 +196,111 @@ function OcorrenciasMassaContent() {
           ) : (
             turmaNome && (
               <div className="bg-purple-50 rounded-2xl border border-purple-100 p-4">
-                <p className="text-sm text-purple-700 font-medium">
-                  Turma: {turmaNome}
-                </p>
+                <p className="text-sm text-purple-700 font-medium">Turma: {turmaNome}</p>
               </div>
             )
           )}
 
           {turmaId && (
             <>
-              {/* Disciplina */}
+              {/* Disciplina — FIX: opção vazia explícita */}
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
                 <h2 className="font-semibold text-gray-900 mb-3">
-                  Disciplina <span className="font-normal text-gray-400 text-sm"></span>
+                  Disciplina <span className="text-red-500">*</span>
                 </h2>
                 <select
                   value={disciplinaId}
-                  onChange={(e) => setDisciplinaId(e.target.value)}
+                  onChange={(e) => {
+                    setDisciplinaId(e.target.value);
+                    setMotivosSelecionados([]); // limpa motivos ao trocar disciplina
+                  }}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
-                  
+                  <option value="">Selecione uma disciplina...</option>
                   {disciplinas.map((d) => (
                     <option key={d.id} value={d.id}>{d.nome}</option>
                   ))}
                 </select>
+                {!disciplinaId && (
+                  <p className="text-xs text-amber-600 mt-1.5">Selecione uma disciplina para continuar</p>
+                )}
               </div>
 
-              {/* Motivos */}
-              <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                <h2 className="font-semibold text-gray-900 mb-3">Motivos *</h2>
+              {/* Motivos — só aparece após disciplina selecionada */}
+              {disciplinaId && (
+                <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                  <h2 className="font-semibold text-gray-900 mb-3">Motivos *</h2>
 
-                {motivosSelecionados.length > 0 && (
-                  <div className="space-y-2 mb-4">
-                    {motivosSelecionados.map((m) => (
-                      <div
-                        key={m.motivoId}
-                        className={`rounded-xl border p-3 ${
-                          m.positivo ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-1.5">
-                            {m.positivo
-                              ? <ThumbsUp className="w-3.5 h-3.5 text-green-600" />
-                              : <ThumbsDown className="w-3.5 h-3.5 text-red-600" />}
-                            <span className={`text-sm font-medium ${m.positivo ? "text-green-800" : "text-red-800"}`}>
-                              {m.titulo}
-                            </span>
+                  {motivosSelecionados.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      {motivosSelecionados.map((m) => (
+                        <div
+                          key={m.motivoId}
+                          className={`rounded-xl border p-3 ${
+                            m.positivo ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-1.5">
+                              {m.positivo
+                                ? <ThumbsUp className="w-3.5 h-3.5 text-green-600" />
+                                : <ThumbsDown className="w-3.5 h-3.5 text-red-600" />}
+                              <span className={`text-sm font-medium ${m.positivo ? "text-green-800" : "text-red-800"}`}>
+                                {m.titulo}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => removeMotivo(m.motivoId)}
+                              className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-black/10 text-gray-500"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
                           </div>
-                          <button
-                            onClick={() => removeMotivo(m.motivoId)}
-                            className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-black/10 text-gray-500"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                          <input
+                            value={m.descricao}
+                            onChange={(e) => updateDescricao(m.motivoId, e.target.value)}
+                            placeholder="Descrição opcional para este motivo..."
+                            className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
                         </div>
-                        <input
-                          value={m.descricao}
-                          onChange={(e) => updateDescricao(m.motivoId, e.target.value)}
-                          placeholder="Descrição opcional para este motivo..."
-                          className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
 
-                {motivosDisponiveis.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {motivosDisponiveis.map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => addMotivo(m)}
-                        className={`text-left px-3 py-2 rounded-xl border text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                          m.positivo
-                            ? "border-green-200 text-green-700 hover:bg-green-50"
-                            : "border-red-200 text-red-700 hover:bg-red-50"
-                        }`}
-                      >
-                        <Plus className="w-3 h-3 flex-shrink-0" />
-                        {m.titulo}
-                      </button>
-                    ))}
-                  </div>
-                ) : motivosSelecionados.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-3">Nenhum motivo disponível</p>
-                ) : (
-                  <p className="text-xs text-gray-400 text-center py-2">Todos os motivos adicionados</p>
-                )}
+                  {motivosDisponiveis.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {motivosDisponiveis.map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => addMotivo(m)}
+                          className={`text-left px-3 py-2 rounded-xl border text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                            m.positivo
+                              ? "border-green-200 text-green-700 hover:bg-green-50"
+                              : "border-red-200 text-red-700 hover:bg-red-50"
+                          }`}
+                        >
+                          <Plus className="w-3 h-3 flex-shrink-0" />
+                          {m.titulo}
+                        </button>
+                      ))}
+                    </div>
+                  ) : motivosSelecionados.length === 0 ? (
+                    <p className="text-xs text-gray-400 text-center py-3">Nenhum motivo disponível para esta disciplina</p>
+                  ) : (
+                    <p className="text-xs text-gray-400 text-center py-2">Todos os motivos adicionados</p>
+                  )}
 
-                {deltaPreview && (
-                  <p className={`text-xs mt-3 font-medium ${todosPositivos ? "text-green-600" : "text-red-600"}`}>
-                    Impacto por aluno: {deltaPreview} por registro
-                  </p>
-                )}
-              </div>
+                  {deltaPreview && (
+                    <p className={`text-xs mt-3 font-medium ${todosPositivos ? "text-green-600" : "text-red-600"}`}>
+                      Impacto por aluno: {deltaPreview} por registro
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-end">
                 <button
-                  disabled={motivosSelecionados.length === 0}
+                  disabled={!podeAvancar}
                   onClick={() => setStep(2)}
                   className="px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 disabled:opacity-40 transition-colors"
                 >
@@ -331,10 +347,6 @@ function OcorrenciasMassaContent() {
                         : <Square className="w-4 h-4 text-gray-300 flex-shrink-0" />}
                       <span className="text-sm font-medium text-gray-900 flex-1">{a.nome}</span>
                       <span className="text-xs text-gray-400">{a.matricula}</span>
-                      <span className="text-xs text-amber-500 ml-1">
-                        {"⭐".repeat(Math.min(a.estrelas, 5))}
-                        {a.estrelas > 5 ? `+${a.estrelas - 5}` : ""}
-                      </span>
                     </button>
                   );
                 })}
@@ -347,6 +359,9 @@ function OcorrenciasMassaContent() {
             <p className="text-sm font-semibold text-purple-900">Resumo</p>
             <p className="text-xs text-purple-700">
               {alunosSelecionados.size} aluno(s) selecionado(s)
+            </p>
+            <p className="text-xs text-purple-700">
+              Disciplina: {disciplinas.find((d) => d.id === disciplinaId)?.nome}
             </p>
             <p className="text-xs text-purple-700">
               Motivos: {motivosSelecionados.map((m) => m.titulo).join(" · ")}

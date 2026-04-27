@@ -10,6 +10,7 @@ interface MotivoItem {
   positivo: boolean;
 }
 
+// FIX: média com 1 casa decimal (Float), igual aos outros routes
 async function atualizarEstrelas(alunoId: string, disciplinaId: string, delta: number) {
   const atual = await prisma.alunoEstrelas.upsert({
     where: { alunoId_disciplinaId: { alunoId, disciplinaId } },
@@ -27,8 +28,9 @@ async function atualizarEstrelas(alunoId: string, disciplinaId: string, delta: n
     select: { estrelas: true },
   });
 
+  // Média com 1 casa decimal
   const media = todas.length > 0
-    ? Math.round(todas.reduce((sum, e) => sum + e.estrelas, 0) / todas.length)
+    ? Math.round((todas.reduce((sum, e) => sum + e.estrelas, 0) / todas.length) * 10) / 10
     : 5;
 
   await prisma.aluno.update({
@@ -43,18 +45,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
-  const { turmaId, disciplinaId, alunoIds, motivos } = await req.json() as {
+  const body = await req.json() as {
     turmaId: string;
     disciplinaId: string;
     alunoIds: string[];
     motivos: MotivoItem[];
   };
 
+  const { turmaId, disciplinaId, alunoIds, motivos } = body;
+
   if (!turmaId || !alunoIds?.length || !motivos?.length) {
     return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
   }
 
-  // Disciplina obrigatória
   if (!disciplinaId) {
     return NextResponse.json({ error: "Disciplina é obrigatória" }, { status: 400 });
   }
