@@ -348,36 +348,40 @@ export default function RelatoriosSecretariaPage() {
           <div className="grid xl:grid-cols-3 gap-6">
 
             {/* Por motivo */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-blue-600" /> Por motivo
-              </h2>
-              {dados.porMotivo?.length > 0 ? (
-                <div className="flex items-center gap-4">
-                  <ResponsiveContainer width="55%" height={180}>
-                    <PieChart>
-                      <Pie data={dados.porMotivo} dataKey="value" cx="50%" cy="50%" innerRadius={45} outerRadius={75}>
-                        {dados.porMotivo.map((_: any, i: number) => (
-                          <Cell key={i} fill={CORES_GRAFICO[i % CORES_GRAFICO.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 12 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex-1 space-y-1.5">
-                    {dados.porMotivo.slice(0, 5).map((m: any, i: number) => (
-                      <div key={i} className="flex items-center gap-2 text-xs">
-                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: CORES_GRAFICO[i % CORES_GRAFICO.length] }} />
-                        <span className="text-gray-600 flex-1 truncate">{m.name}</span>
-                        <span className="font-semibold text-gray-900">{m.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400 text-center py-8">Sem dados</p>
-              )}
+<div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+  <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+    <BookOpen className="w-4 h-4 text-blue-600" /> Por motivo
+  </h2>
+  {dados.porMotivo?.length > 0 ? (
+    <div className="space-y-2.5">
+      {dados.porMotivo.slice(0, 6).map((m: any, i: number) => {
+        const max = dados.porMotivo[0]?.value || 1;
+        const pct = ((m.value / max) * 100).toFixed(0);
+        return (
+          <div key={i}>
+            <div className="flex items-center justify-between mb-1 text-xs">
+              <span className="text-gray-700 font-medium truncate max-w-[70%]">{m.name}</span>
+              <span className="font-semibold text-gray-900 ml-2 flex-shrink-0">{m.value}</span>
             </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${pct}%`, background: CORES_GRAFICO[i % CORES_GRAFICO.length] }}
+              />
+            </div>
+          </div>
+        );
+      })}
+      {dados.porMotivo.length > 6 && (
+        <p className="text-xs text-gray-400 pt-1">
+          +{dados.porMotivo.length - 6} outros motivos
+        </p>
+      )}
+    </div>
+  ) : (
+    <p className="text-sm text-gray-400 text-center py-8">Sem dados</p>
+  )}
+</div>
 
             {/* Heatmap por dia da semana — NOVO */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
