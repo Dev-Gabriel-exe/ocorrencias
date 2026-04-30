@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
   });
   const porProfessor = Object.values(professorMap).sort((a, b) => b.total - a.total);
 
-  // Top alunos
+  // Top alunos (por total de ocorrências)
   const alunoMap: Record<string, { nome: string; total: number; negativas: number; positivas: number; estrelas: number }> = {};
   ocorrencias.forEach((o) => {
     if (!alunoMap[o.alunoId]) {
@@ -161,14 +161,35 @@ export async function GET(req: NextRequest) {
   });
   const topAlunos = Object.values(alunoMap).sort((a, b) => b.total - a.total).slice(0, 10);
 
-  // FIX: considera como "com ocorrência" apenas quem tem ocorrência NEGATIVA.
-  // Alunos com somente ocorrências positivas continuam aparecendo em "sem ocorrências".
+  // Apenas ocorrências NEGATIVAS definem quem "tem ocorrência" para o relatório de alunos limpos
   const todosAlunosComOcorrenciaNegativa = new Set(
-    ocorrencias
-      .filter((o) => !o.motivo?.positivo)
-      .map((o) => o.alunoId)
+    ocorrencias.filter((o) => !o.motivo?.positivo).map((o) => o.alunoId)
   );
   const todosAlunosComOcorrencia = Array.from(todosAlunosComOcorrenciaNegativa);
+
+  // Mapa de ocorrências POSITIVAS por aluno → para destacar alunos elogiados na lista "sem negativos"
+  // Estrutura: { alunoId → { total: number, disciplinas: string[] } }
+  const positivasPorAlunoMap: Record<string, { total: number; disciplinas: Set<string> }> = {};
+  ocorrencias
+    .filter((o) => o.motivo?.positivo)
+    .forEach((o) => {
+      if (!positivasPorAlunoMap[o.alunoId]) {
+        positivasPorAlunoMap[o.alunoId] = { total: 0, disciplinas: new Set() };
+      }
+      positivasPorAlunoMap[o.alunoId].total++;
+      if (o.disciplina?.nome) {
+        positivasPorAlunoMap[o.alunoId].disciplinas.add(o.disciplina.nome);
+      }
+    });
+
+  // Serializa Set → Array para JSON
+  const positivasPorAluno: Record<string, { total: number; disciplinas: string[] }> = {};
+  for (const [alunoId, val] of Object.entries(positivasPorAlunoMap)) {
+    positivasPorAluno[alunoId] = {
+      total: val.total,
+      disciplinas: Array.from(val.disciplinas).sort(),
+    };
+  }
 
   const rankingMelhores = topAlunosRanking.map((a) => {
     const stats = alunoMap[a.id];
@@ -190,6 +211,7 @@ export async function GET(req: NextRequest) {
     porProfessor,
     topAlunos,
     todosAlunosComOcorrencia,
+    positivasPorAluno,
     rankingMelhores,
     mediaEstrélasPorDisciplina,
     totalOcorrencias: ocorrencias.length,
