@@ -73,9 +73,7 @@ export async function GET(req: NextRequest) {
   // Média de estrelas por disciplina
   const estrelasPorDisciplina = await prisma.alunoEstrelas.groupBy({
     by: ["disciplinaId"],
-    where: {
-      aluno: whereAlunos,
-    },
+    where: { aluno: whereAlunos },
     _avg: { estrelas: true },
     _count: { alunoId: true },
   });
@@ -162,7 +160,15 @@ export async function GET(req: NextRequest) {
     else alunoMap[o.alunoId].negativas++;
   });
   const topAlunos = Object.values(alunoMap).sort((a, b) => b.total - a.total).slice(0, 10);
-  const todosAlunosComOcorrencia = Object.keys(alunoMap);
+
+  // FIX: considera como "com ocorrência" apenas quem tem ocorrência NEGATIVA.
+  // Alunos com somente ocorrências positivas continuam aparecendo em "sem ocorrências".
+  const todosAlunosComOcorrenciaNegativa = new Set(
+    ocorrencias
+      .filter((o) => !o.motivo?.positivo)
+      .map((o) => o.alunoId)
+  );
+  const todosAlunosComOcorrencia = Array.from(todosAlunosComOcorrenciaNegativa);
 
   const rankingMelhores = topAlunosRanking.map((a) => {
     const stats = alunoMap[a.id];
@@ -185,7 +191,7 @@ export async function GET(req: NextRequest) {
     topAlunos,
     todosAlunosComOcorrencia,
     rankingMelhores,
-    mediaEstrélasPorDisciplina, // novo: média por disciplina para o relatório
+    mediaEstrélasPorDisciplina,
     totalOcorrencias: ocorrencias.length,
     totalPositivas: ocorrencias.filter((o) => o.motivo?.positivo).length,
     totalNegativas: ocorrencias.filter((o) => !o.motivo?.positivo).length,
